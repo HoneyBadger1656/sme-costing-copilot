@@ -33,7 +33,7 @@ class Token(BaseModel):
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
-    id: str
+    id: int
     email: str
     name: str
     role: str
@@ -96,8 +96,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     hashed_password = get_password_hash(user_data.password)
     user = User(
         email=user_data.email,
-        password_hash=hashed_password,
-        name=user_data.name,
+        hashed_password=hashed_password,
+        full_name=user_data.name,
         organization_id=org.id,
         role="admin"
     )
@@ -127,4 +127,10 @@ def login(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
-    return current_user
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "name": current_user.full_name,
+        "role": current_user.role,
+        "organization_id": current_user.organization_id
+    }

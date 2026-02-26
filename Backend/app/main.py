@@ -4,7 +4,7 @@ from uuid import UUID
 import json
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing
 
 app = FastAPI(
     title="SME Costing Copilot API",
@@ -32,6 +32,11 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix="/api/clients", tags=["Clients"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 app.include_router(data_upload.router, prefix="/api/data", tags=["Data Upload"])
+app.include_router(scenarios.router, prefix="/api/scenarios", tags=["Scenarios"])
+app.include_router(financials.router, prefix="/api/financials", tags=["Financials"])
+app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistant"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
+app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
 
 @app.get("/")
 def root():

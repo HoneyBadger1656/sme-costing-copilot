@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Tex
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+import uuid
 
 from app.core.database import Base
 
@@ -15,10 +16,25 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255))
     role = Column(String(50), default="ca")  # ca, sme_owner
+    organization_id = Column(String(255), ForeignKey("organizations.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     
+    organization = relationship("Organization", back_populates="users")
     clients = relationship("Client", back_populates="user")
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    
+    id = Column(String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=False)
+    email = Column(String(255))
+    subscription_plan = Column(String(50), default="trial")
+    subscription_status = Column(String(50), default="trial")  # trial, active, cancelled, expired
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    users = relationship("User", back_populates="organization")
 
 
 class Client(Base):
@@ -26,6 +42,7 @@ class Client(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"))
     business_name = Column(String(255), nullable=False)
     email = Column(String(255))
     phone = Column(String(20))
@@ -40,6 +57,7 @@ class Client(Base):
     zoho_tokens = Column(JSON)   # {access_token, refresh_token, expires_at}
     
     user = relationship("User", back_populates="clients")
+    organization = relationship("Organization")
     products = relationship("Product", back_populates="client")
     orders = relationship("Order", back_populates="client")
     ledgers = relationship("Ledger", back_populates="client")

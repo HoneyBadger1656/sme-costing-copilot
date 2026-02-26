@@ -49,8 +49,8 @@ try:
     
     user = User(
         email=user_data.email,
-        password_hash=hashed_password,
-        name=user_data.name,
+        hashed_password=hashed_password,
+        full_name=user_data.name,
         organization_id=org.id,
         role="admin"
     )

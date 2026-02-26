@@ -7,8 +7,10 @@ import json
 import os
 from openai import OpenAI
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client (only if API key is available)
+client = None
+if os.getenv("OPENAI_API_KEY"):
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class AIAssistantService:
     
@@ -31,6 +33,13 @@ class AIAssistantService:
         
         # Call LLM
         try:
+            if not client:
+                return {
+                    "message": "AI Assistant is not configured. Please set OPENAI_API_KEY environment variable to enable AI features.",
+                    "query_type": "error",
+                    "data_used": context_data
+                }
+            
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
