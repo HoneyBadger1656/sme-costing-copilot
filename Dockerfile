@@ -5,6 +5,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -22,8 +23,13 @@ RUN python -c "import sys; sys.path.append('./Backend'); from app.core.database 
 # Expose port
 EXPOSE 8000
 
-# Create a startup script
-RUN echo '#!/bin/bash\npython -m uvicorn Backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > start.sh && chmod +x start.sh
+# Create a startup script with proper bash
+RUN echo '#!/bin/bash' > start.sh && \
+    echo 'set -e' >> start.sh && \
+    echo 'PORT=${PORT:-8000}' >> start.sh && \
+    echo 'echo "Starting server on port $PORT"' >> start.sh && \
+    echo 'python -m uvicorn Backend.app.main:app --host 0.0.0.0 --port $PORT' >> start.sh && \
+    chmod +x start.sh
 
 # Start the application
 CMD ["./start.sh"]
