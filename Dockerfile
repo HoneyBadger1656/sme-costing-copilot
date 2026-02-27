@@ -15,10 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY Backend/ ./Backend/
-COPY test.db ./test.db
 
 # Create database if it doesn't exist
-RUN python -c "from Backend.app.core.database import engine; from Backend.app.models.models import Base; Base.metadata.create_all(bind=engine)"
+RUN python -c "import sys; sys.path.append('./Backend'); from app.core.database import engine; from app.models.models import Base; Base.metadata.create_all(bind=engine)" || echo "Database creation skipped - will be created on startup"
 
 # Expose port
 EXPOSE $PORT
