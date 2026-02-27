@@ -1,0 +1,17 @@
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.production
+node_modules
+frontend
+.venv
+.venv-1
+.venv-2
+test.db
+*.pyc
+__pycache__
+.pytest_cache
+.coverage
+htmlcov

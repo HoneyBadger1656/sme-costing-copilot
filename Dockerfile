@@ -20,7 +20,10 @@ COPY Backend/ ./Backend/
 RUN python -c "import sys; sys.path.append('./Backend'); from app.core.database import engine; from app.models.models import Base; Base.metadata.create_all(bind=engine)" || echo "Database creation skipped - will be created on startup"
 
 # Expose port
-EXPOSE $PORT
+EXPOSE 8000
+
+# Create a startup script
+RUN echo '#!/bin/bash\npython -m uvicorn Backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}' > start.sh && chmod +x start.sh
 
 # Start the application
-CMD ["python", "-m", "uvicorn", "Backend.app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+CMD ["./start.sh"]
