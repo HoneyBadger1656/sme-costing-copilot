@@ -1,27 +1,18 @@
-# Simplified single-stage build for reliable deployment
+# Backend-only Dockerfile for debugging
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies including Node.js for frontend build
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
     bash \
     curl \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies first
+# Install Python dependencies
 COPY Backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy and build frontend
-COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci --only=production
-
-COPY frontend/ ./frontend/
-RUN cd frontend && npm run build
 
 # Copy backend code
 COPY Backend/ ./Backend/
@@ -36,7 +27,7 @@ EXPOSE 8000
 RUN echo '#!/bin/bash' > start.sh && \
     echo 'set -e' >> start.sh && \
     echo 'PORT=${PORT:-8000}' >> start.sh && \
-    echo 'echo "Starting SME Costing Copilot on port $PORT"' >> start.sh && \
+    echo 'echo "Starting SME Costing Copilot Backend on port $PORT"' >> start.sh && \
     echo 'export PYTHONPATH=/app/Backend:$PYTHONPATH' >> start.sh && \
     echo 'export DATABASE_URL=${DATABASE_URL:-"sqlite:///app.db"}' >> start.sh && \
     echo 'cd /app/Backend' >> start.sh && \
