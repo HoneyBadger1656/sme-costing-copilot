@@ -1,14 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pathlib import Path
 from uuid import UUID
 import json
 import os
+import logging
 
 from app.core.database import engine, Base
 from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing
+from app.middleware.security import add_security_middleware
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="SME Costing Copilot API",
@@ -17,16 +23,20 @@ app = FastAPI(
     json_encoders={UUID: str}
 )
 
+# Add security middleware
+add_security_middleware(app)
+
 # CORS middleware - restrict to specific origins in production
 origins = [
     "http://localhost:3000",
     "https://localhost:3000",
-    os.getenv("PUBLIC_URL", "http://localhost:8000")
+    os.getenv("PUBLIC_URL", "http://localhost:8000"),
+    "https://sme-costing-copilot-production.up.railway.app"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=origins,  # Restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +46,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -48,13 +59,28 @@ app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistan
 app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
 app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
 
-# Serve static files (frontend)
-frontend_path = Path(__file__).parent.parent.parent / "frontend" / "static"
-if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
+# Serve static files (frontend) - check multiple possible locations
+frontend_paths = [
+    Path(__file__).parent.parent.parent / "frontend" / "out",
+    Path(__file__).parent.parent.parent / "frontend" / "build", 
+    Path(__file__).parent.parent.parent / "frontend" / "static",
+    Path("/app/frontend/out"),
+    Path("/app/frontend/build"),
+    Path("/app/frontend/static")
+]
+
+for frontend_path in frontend_paths:
+    if frontend_path.exists():
+        app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
+        logger.info(f"[FRONTEND] Serving static files from: {frontend_path}")
+        break
 
 @app.get("/")
 def root():
+    # Redirect to frontend if available, otherwise show API info
+    for frontend_path in frontend_paths:
+        if (frontend_path / "index.html").exists():
+            return FileResponse(frontend_path / "index.html")
     return {"message": "SME Costing Copilot API", "status": "running"}
 
 @app.get("/health")
@@ -64,7 +90,17 @@ def health_check():
 # Serve frontend for all other routes (SPA)
 @app.get("/{path:path}")
 def serve_frontend(path: str):
-    frontend_index = Path(__file__).parent.parent.parent / "frontend" / "static" / "index.html"
-    if frontend_index.exists():
-        return FileResponse(frontend_index)
-    return {"message": "Frontend not built. Please build the frontend first."}
+    # Try to serve static file first
+    for frontend_path in frontend_paths:
+        static_file = frontend_path / path
+        if static_file.exists() and static_file.is_file():
+            return FileResponse(static_file)
+    
+    # Fallback to index.html for SPA routing
+    for frontend_path in frontend_paths:
+        index_file = frontend_path / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+    
+    # If no frontend, return API message
+    return {"message": "Frontend not built. Please build the frontend first.", "path": path}
