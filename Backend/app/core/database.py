@@ -6,14 +6,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use absolute path for SQLite database
-DB_DIR = Path(r"c:\Users\csp\OneDrive\Desktop\SAI\sme-costing-copilot")
-DB_PATH = DB_DIR / "test.db"
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+# Database configuration - support both SQLite and PostgreSQL
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    # Fallback to SQLite for development
+    DB_DIR = Path(__file__).parent.parent.parent.parent
+    DB_PATH = DB_DIR / "test.db"
+    DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 print(f"[DATABASE] Using: {DATABASE_URL}")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+# Configure engine based on database type
+if "sqlite" in DATABASE_URL:
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
