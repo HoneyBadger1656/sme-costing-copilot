@@ -6,6 +6,7 @@ healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+startCommand = "python -m uvicorn Backend.app.main:app --host 0.0.0.0 --port $PORT"
 
 [env]
 PYTHON_VERSION = "3.11"
@@ -13,3 +14,4 @@ PORT = "8000"
 DATABASE_URL = "postgresql://postgres:password@postgres.railway.app:5432/railway"
 OPENAI_API_KEY = "${OPENAI_API_KEY}"
 NEXT_PUBLIC_API_URL = "${PUBLIC_URL}"
+PUBLIC_URL = "${PUBLIC_URL}"

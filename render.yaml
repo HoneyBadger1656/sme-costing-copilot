@@ -1,0 +1,43 @@
+# Render Configuration
+# This file tells Render how to build and run your application
+
+services:
+  # Type: Web Service
+  - type: web
+    name: sme-costing-copilot
+    env: docker
+    plan: free
+    
+    # Health Check
+    healthCheck:
+      path: /health
+      timeoutSeconds: 30
+      intervalSeconds: 30
+      gracePeriodSeconds: 60
+      
+    # Environment Variables
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sme-copilot-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11
+        
+    # Auto-deploy configuration
+    autoDeploy: true
+    
+    # Build configuration
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+# Database Service
+databases:
+  - name: sme-copilot-db
+    plan: free
+    databaseName: sme_copilot
+    user: sme_copilot

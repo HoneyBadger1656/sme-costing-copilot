@@ -10,10 +10,8 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    # Fallback to SQLite for development
-    DB_DIR = Path(__file__).parent.parent.parent.parent
-    DB_PATH = DB_DIR / "test.db"
-    DATABASE_URL = f"sqlite:///{DB_PATH}"
+    # Fallback to SQLite for development - use container path
+    DATABASE_URL = "sqlite:///app.db"
 
 print(f"[DATABASE] Using: {DATABASE_URL}")
 

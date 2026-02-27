@@ -36,19 +36,10 @@ COPY --from=frontend-build /app/frontend/public ./frontend/static
 # Set PYTHONPATH to include Backend directory
 ENV PYTHONPATH=/app/Backend
 
-# Change to Backend directory for database operations
-WORKDIR /app/Backend
-
-# Create database if it doesn't exist
-RUN python -c "from app.core.database import engine; from app.models.models import Base; Base.metadata.create_all(bind=engine)" || echo "Database creation skipped - will be created on startup"
-
-# Go back to root for script execution
-WORKDIR /app
-
-# Expose port
+# Expose port (Railway will set PORT env var)
 EXPOSE 8000
 
-# Create a production startup script
+# Create a production startup script that handles Railway's dynamic port
 RUN echo '#!/bin/bash' > start.sh && \
     echo 'set -e' >> start.sh && \
     echo 'PORT=${PORT:-8000}' >> start.sh && \
@@ -61,7 +52,7 @@ RUN echo '#!/bin/bash' > start.sh && \
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Start the application
 CMD ["./start.sh"]
