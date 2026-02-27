@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.full"
+dockerfilePath = "Dockerfile.backend"
 
 [deploy]
 healthcheckPath = "/health"
@@ -18,4 +18,4 @@ SECRET_KEY = "${SECRET_KEY}"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = "30"
 
-# Database configuration will be set by Railway PostgreSQL service
+# PostgreSQL will be added as separate service

@@ -3,7 +3,7 @@ FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 COPY frontend/ ./
 RUN npm run build
@@ -27,8 +27,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY Backend/ ./Backend/
 
-# Copy built frontend
-COPY --from=frontend-build /app/frontend/out ./frontend/out
+# Copy built frontend (Next.js builds to .next)
+COPY --from=frontend-build /app/frontend/.next ./frontend/.next
+COPY --from=frontend-build /app/frontend/public ./frontend/public
+COPY --from=frontend-build /app/frontend/package.json ./frontend/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/Backend
