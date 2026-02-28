@@ -1,20 +1,19 @@
 {
   "version": 2,
-  "name": "sme-costing-copilot-frontend",
   "builds": [
     {
       "src": "package.json",
       "use": "@vercel/next"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "https://sme-costing-copilot-production.up.railway.app/api/$1"
+      "source": "/api/(.*)",
+      "destination": "https://sme-costing-copilot-production.up.railway.app/api/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "env": {
