@@ -31,7 +31,10 @@ origins = [
     "http://localhost:3000",
     "https://localhost:3000",
     os.getenv("PUBLIC_URL", "http://localhost:8000"),
-    "https://sme-costing-copilot-production.up.railway.app"
+    "https://sme-costing-copilot-production.up.railway.app",
+    "https://sme-costing-copilot-frontend.vercel.app",
+    "https://sme-costing-copilot-frontend-3wy5n5q29.vercel.app",
+    "https://*.vercel.app"  # Allow all Vercel preview deployments
 ]
 
 app.add_middleware(
