@@ -6,28 +6,56 @@ import { api } from '@/lib/api'
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('token')
       
+      if (!token) {
+        setError('No authentication token found')
+        setLoading(false)
+        return
+      }
+
       try {
         const userData = await api.getCurrentUser(token)
         setUser(userData)
       } catch (error) {
         console.error('Failed to fetch user data:', error)
+        setError('Failed to load user data')
       }
 
       try {
         const clientsData = await api.getClients(token)
-        setClients(clientsData)
+        setClients(clientsData || [])
       } catch (error) {
         console.error('Failed to fetch clients:', error)
+        setClients([])
       }
+
+      setLoading(false)
     }
 
     fetchData()
   }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -35,7 +63,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between">
             <h1 className="text-xl font-bold">SME Costing Copilot</h1>
-            <span className="text-gray-600">Welcome, {user?.name}</span>
+            <span className="text-gray-600">Welcome, {user?.name || user?.full_name || 'User'}</span>
           </div>
         </div>
       </nav>
@@ -44,7 +72,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-gray-500 text-sm">Total Clients</h3>
-            <p className="text-3xl font-bold mt-2">{clients.length}</p>
+            <p className="text-3xl font-bold mt-2">{clients?.length || 0}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-gray-500 text-sm">Evaluations This Month</h3>
@@ -67,7 +95,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="p-6">
-            {clients.length === 0 ? (
+            {(!clients || clients.length === 0) ? (
               <p className="text-gray-500">No clients yet. Add your first client to get started.</p>
             ) : (
               <div className="space-y-4">
@@ -75,8 +103,8 @@ export default function Dashboard() {
                   <div key={client.id} className="border rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-semibold">{client.business_name}</h3>
-                        <p className="text-sm text-gray-600">{client.industry}</p>
+                        <h3 className="font-semibold">{client.business_name || client.name || 'Unnamed Client'}</h3>
+                        <p className="text-sm text-gray-600">{client.industry || 'No industry specified'}</p>
                       </div>
                       <Link
                         href={`/evaluate?client=${client.id}`}
