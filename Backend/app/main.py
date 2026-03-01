@@ -90,9 +90,13 @@ def root():
 def health_check():
     return {"status": "healthy"}
 
-# Serve frontend for all other routes (SPA)
-@app.get("/{path:path}")
+# Serve frontend for all other routes (SPA) - exclude API paths
+@app.get("/{path:path}", include_in_schema=False)
 def serve_frontend(path: str):
+    # Don't interfere with API routes
+    if path.startswith("api/") or path.startswith("docs") or path.startswith("openapi") or path.startswith("health"):
+        return {"message": "API endpoint not found", "path": path}
+    
     # Try to serve static file first
     for frontend_path in frontend_paths:
         static_file = frontend_path / path
@@ -106,4 +110,4 @@ def serve_frontend(path: str):
             return FileResponse(index_file)
     
     # If no frontend, return API message
-    return {"message": "Frontend not built. Please build the frontend first.", "path": path}
+    return {"message": "SME Costing Copilot API - Frontend not built", "path": path}

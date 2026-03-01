@@ -10,7 +10,7 @@ from app.api.auth import get_current_user
 from app.models.models import User
 from app.services.ai_assistant_service import AIAssistantService
 
-router = APIRouter(prefix="/api/assistant", tags=["ai-assistant"])
+router = APIRouter(tags=["ai-assistant"])
 
 class ChatRequest(BaseModel):
     message: str
