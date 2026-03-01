@@ -5,12 +5,19 @@ from app.models.models import ChatMessage, Client, Order, Product, Ledger
 from typing import Dict, List
 import json
 import os
-from openai import OpenAI
 
-# Initialize OpenAI client (only if API key is available)
+# Initialize AI client (Groq preferred, fallback to OpenAI)
 client = None
-if os.getenv("OPENAI_API_KEY"):
+client_type = None
+
+if os.getenv("GROQ_API_KEY"):
+    from groq import Groq
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client_type = "groq"
+elif os.getenv("OPENAI_API_KEY"):
+    from openai import OpenAI
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client_type = "openai"
 
 class AIAssistantService:
     
@@ -35,20 +42,30 @@ class AIAssistantService:
         try:
             if not client:
                 return {
-                    "message": "AI Assistant is not configured. Please set OPENAI_API_KEY environment variable to enable AI features.",
+                    "message": "AI Assistant is not configured. Please set GROQ_API_KEY or OPENAI_API_KEY environment variable to enable AI features.\n\nGet your Groq API key free at: https://console.groq.com/keys",
                     "query_type": "error",
                     "data_used": context_data
                 }
             
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000
-            )
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            if client_type == "groq":
+                response = client.chat.completions.create(
+                    model="llama-3.1-70b-versatile",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+            else:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
             
             assistant_message = response.choices[0].message.content
             
