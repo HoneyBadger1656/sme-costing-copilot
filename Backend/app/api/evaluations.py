@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 from app.core.database import get_db
-from app.models.models import OrderEvaluation, Client, User
+from app.models.models import Client, User
 from app.services.costing_engine import CostingEngine
 from app.api.auth import get_current_user
 
@@ -46,7 +47,7 @@ def evaluate_order(
 ):
     # Get client
     client = db.query(Client).filter(
-        Client.id == uuid.UUID(request.client_id),
+        Client.id == request.client_id,
         Client.organization_id == current_user.organization_id
     ).first()
     
@@ -71,35 +72,16 @@ def evaluate_order(
         annual_sales=request.annual_sales
     )
     
-    # Save to database
-    evaluation = OrderEvaluation(
-        client_id=client.id,
-        evaluated_by=current_user.id,
-        customer_name=request.customer_name,
-        product_name=request.product_name,
-        quantity=request.quantity,
-        proposed_price=request.selling_price,
-        proposed_credit_days=request.proposed_credit_days,
-        contribution_margin=result['margin']['contribution_per_unit'],
-        margin_percentage=result['margin']['margin_percentage'],
-        working_capital_impact=result['working_capital']['wc_increase'],
-        decision=result['decision'],
-        reasons=str(result['reasons']),
-        recommendation=result['recommendation']
-    )
-    db.add(evaluation)
-    db.commit()
-    db.refresh(evaluation)
-    
+    # Return evaluation result (no DB save needed for quick evaluation)
     return {
-        "id": str(evaluation.id),
+        "id": "quick-eval",
         "decision": result['decision'],
         "margin": result['margin'],
         "order_value": result['order_value'],
         "working_capital": result['working_capital'],
         "reasons": result['reasons'],
         "recommendation": result['recommendation'],
-        "created_at": evaluation.created_at.isoformat()
+        "created_at": datetime.utcnow().isoformat()
     }
 
 @router.post("/compare-scenarios")
@@ -146,22 +128,28 @@ def get_evaluation_history(
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    evaluations = db.query(OrderEvaluation).filter(
-        OrderEvaluation.client_id == client.id
-    ).order_by(OrderEvaluation.created_at.desc()).limit(50).all()
+    # Query evaluations through Orders that belong to this client
+    from app.models.models import Order, OrderEvaluation
+    evaluations = (
+        db.query(OrderEvaluation)
+        .join(Order, Order.id == OrderEvaluation.order_id)
+        .filter(Order.client_id == client.id)
+        .order_by(OrderEvaluation.created_at.desc())
+        .limit(50)
+        .all()
+    )
     
     return {
         "client_id": client_id,
         "client_name": client.business_name,
         "evaluations": [
             {
-                "id": str(e.id),
-                "customer_name": e.customer_name,
-                "product_name": e.product_name,
-                "decision": e.decision,
-                "margin_percentage": float(e.margin_percentage),
-                "order_value": float(e.proposed_price * e.quantity),
-                "created_at": e.created_at.isoformat()
+                "id": e.id,
+                "profitability_score": e.profitability_score,
+                "risk_level": e.risk_level,
+                "should_accept": e.should_accept,
+                "recommendations": e.recommendations,
+                "created_at": e.created_at.isoformat() if e.created_at else None
             }
             for e in evaluations
         ]

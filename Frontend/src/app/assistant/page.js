@@ -4,6 +4,8 @@
 
 import { useState, useEffect, useRef } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function AIAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -26,12 +28,12 @@ export default function AIAssistant() {
     try {
       const token = localStorage.getItem("token");
       const clientId = localStorage.getItem("selectedClientId") || 1;
-      
+
       const response = await fetch(
-        `http://localhost:8000/api/assistant/history?client_id=${clientId}`,
+        `${API_BASE_URL}/api/assistant/history?client_id=${clientId}`,
         { headers: { "Authorization": `Bearer ${token}` } }
       );
-      
+
       const data = await response.json();
       setMessages(data.messages || []);
     } catch (error) {
@@ -41,26 +43,26 @@ export default function AIAssistant() {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    
+
     if (!input.trim()) return;
-    
+
     const userMessage = input.trim();
     setInput("");
-    
+
     // Add user message immediately
     setMessages(prev => [...prev, {
       role: "user",
       content: userMessage,
       timestamp: new Date().toISOString()
     }]);
-    
+
     setLoading(true);
-    
+
     try {
       const token = localStorage.getItem("token");
       const clientId = localStorage.getItem("selectedClientId") || 1;
-      
-      const response = await fetch("http://localhost:8000/api/assistant/chat", {
+
+      const response = await fetch(`${API_BASE_URL}/api/assistant/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,16 +73,16 @@ export default function AIAssistant() {
           client_id: clientId
         })
       });
-      
+
       const data = await response.json();
-      
+
       // Add assistant response
       setMessages(prev => [...prev, {
         role: "assistant",
         content: data.message,
         timestamp: new Date().toISOString()
       }]);
-      
+
     } catch (error) {
       setMessages(prev => [...prev, {
         role: "assistant",
@@ -109,7 +111,7 @@ export default function AIAssistant() {
         <p className="text-sm text-gray-600 mb-6">
           Ask questions about your finances, orders, customers, and cash flow.
         </p>
-        
+
         <div className="space-y-3">
           <div className="text-sm font-semibold text-gray-700 mb-2">Try asking:</div>
           {suggestedQuestions.map((question, idx) => (
@@ -136,43 +138,41 @@ export default function AIAssistant() {
                 <p className="text-sm mt-2">I can help analyze orders, margins, cash flow, and more.</p>
               </div>
             )}
-            
+
             {messages.map((msg, idx) => (
               <div
                 key={idx}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-2xl rounded-lg p-4 ${
-                    msg.role === "user"
+                  className={`max-w-2xl rounded-lg p-4 ${msg.role === "user"
                       ? "bg-blue-600 text-white"
                       : "bg-white border border-gray-200"
-                  }`}
+                    }`}
                 >
                   <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                   <div
-                    className={`text-xs mt-2 ${
-                      msg.role === "user" ? "text-blue-100" : "text-gray-500"
-                    }`}
+                    className={`text-xs mt-2 ${msg.role === "user" ? "text-blue-100" : "text-gray-500"
+                      }`}
                   >
                     {new Date(msg.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
             ))}
-            
+
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: "0.1s"}}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: "0.2s"}}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                   </div>
                 </div>
               </div>
             )}
-            
+
             <div ref={messagesEndRef} />
           </div>
         </div>

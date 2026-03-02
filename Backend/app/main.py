@@ -9,7 +9,7 @@ import os
 import logging
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products
 from app.middleware.security import add_security_middleware
 
 # Configure logging
@@ -54,6 +54,7 @@ def on_startup():
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(clients.router, prefix="/api/clients", tags=["Clients"])
+app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 app.include_router(data_upload.router, prefix="/api/data", tags=["Data Upload"])
 app.include_router(scenarios.router, prefix="/api/scenarios", tags=["Scenarios"])

@@ -4,7 +4,11 @@ import sys
 sys.path.insert(0, '.')
 
 from app.core.database import engine, Base
-from app.models.models import Organization, User, Client, Product, OrderEvaluation
+from app.models.models import (
+    Organization, User, Client, Product, BOMItem,
+    Order, OrderItem, OrderEvaluation, Scenario,
+    Ledger, IntegrationSync, ChatMessage
+)
 
 if __name__ == "__main__":
     print("Creating database tables...")

@@ -10,7 +10,7 @@ from app.api.auth import get_current_user
 from app.models.models import Scenario, User
 from app.services.scenario_service import ScenarioService
 
-router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
+router = APIRouter(tags=["scenarios"])
 
 class CreateScenarioRequest(BaseModel):
     name: str

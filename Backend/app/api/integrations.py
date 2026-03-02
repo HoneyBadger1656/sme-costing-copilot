@@ -4,12 +4,14 @@ from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from datetime import datetime
+
 from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.models import User, Client
 from app.services.integration_service import TallyIntegration, ZohoIntegration, ExcelCSVImport
 
-router = APIRouter(prefix="/api/integrations", tags=["integrations"])
+router = APIRouter(tags=["integrations"])
 
 # Tally endpoints
 class TallyConfigRequest(BaseModel):

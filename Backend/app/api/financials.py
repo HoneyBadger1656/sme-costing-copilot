@@ -1,15 +1,18 @@
 # backend/app/api/financials.py
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+from pydantic import BaseModel
+from typing import Dict, Any
 
 from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.models import User
 from app.services.financial_service import FinancialService
+from app.services.financial_formulas import get_all_formulas, calculate_formula
 
-router = APIRouter(prefix="/api/financials", tags=["financials"])
+router = APIRouter(tags=["financials"])
 
 @router.get("/profitability")
 def get_profitability(
@@ -58,3 +61,27 @@ def get_cash_flow_forecast(
     """Get cash flow forecast"""
     forecast = FinancialService.get_cash_flow_forecast(db, client_id, days)
     return forecast
+
+# ── Financial formulas endpoints ─────────────────────────────────────
+
+class FormulaCalculateRequest(BaseModel):
+    inputs: Dict[str, Any]
+
+@router.get("/formulas")
+def list_financial_formulas():
+    """Return all 101 financial formulas grouped by 18 categories."""
+    return get_all_formulas()
+
+
+@router.post("/formulas/{formula_id}/calculate")
+def calculate_financial_formula(
+    formula_id: str,
+    request: FormulaCalculateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Calculate a specific financial formula given input values."""
+    try:
+        result = calculate_formula(formula_id, request.inputs)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

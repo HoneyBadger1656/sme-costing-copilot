@@ -12,10 +12,15 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-# Initialize Razorpay
-razorpay_client = razorpay.Client(
-    auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET"))
-)
+# Initialize Razorpay (may be None if keys not configured)
+razorpay_client = None
+try:
+    rp_key = os.getenv("RAZORPAY_KEY_ID")
+    rp_secret = os.getenv("RAZORPAY_KEY_SECRET")
+    if rp_key and rp_secret:
+        razorpay_client = razorpay.Client(auth=(rp_key, rp_secret))
+except Exception:
+    pass
 
 # Schemas
 class SubscriptionCreate(BaseModel):

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import pandas as pd
 import io
+import uuid
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -69,8 +70,8 @@ async def upload_clients_csv(
                 
                 # Create client
                 client = Client(
-                    id=uuid.uuid4(),
-                    **client_data.dict(),
+                    **client_data.model_dump(),
+                    user_id=current_user.id,
                     organization_id=current_user.organization_id
                 )
                 db.add(client)
@@ -138,8 +139,8 @@ async def upload_clients_excel(
                 )
                 
                 client = Client(
-                    id=uuid.uuid4(),
-                    **client_data.dict(),
+                    **client_data.model_dump(),
+                    user_id=current_user.id,
                     organization_id=current_user.organization_id
                 )
                 db.add(client)

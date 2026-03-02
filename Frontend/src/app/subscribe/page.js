@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 export default function SubscribePage() {
   const [selectedPlan, setSelectedPlan] = useState('growth')
   const [loading, setLoading] = useState(false)
@@ -54,7 +56,7 @@ export default function SubscribePage() {
 
   const checkSubscriptionStatus = async () => {
     const token = localStorage.getItem('token')
-    const response = await fetch('http://localhost:8000/api/payments/subscription-status', {
+    const response = await fetch(`${API_BASE_URL}/api/payments/subscription-status`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     const data = await response.json()
@@ -66,7 +68,7 @@ export default function SubscribePage() {
     const token = localStorage.getItem('token')
 
     try {
-      const response = await fetch('http://localhost:8000/api/payments/create-subscription', {
+      const response = await fetch(`${API_BASE_URL}/api/payments/create-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,7 +78,7 @@ export default function SubscribePage() {
       })
 
       const data = await response.json()
-      
+
       // Redirect to Razorpay payment page
       window.location.href = data.short_url
     } catch (error) {
@@ -106,9 +108,8 @@ export default function SubscribePage() {
           {plans.map(plan => (
             <div
               key={plan.id}
-              className={`bg-white rounded-lg shadow-lg p-8 ${
-                plan.popular ? 'ring-2 ring-blue-500' : ''
-              } ${selectedPlan === plan.id ? 'border-2 border-blue-500' : ''}`}
+              className={`bg-white rounded-lg shadow-lg p-8 ${plan.popular ? 'ring-2 ring-blue-500' : ''
+                } ${selectedPlan === plan.id ? 'border-2 border-blue-500' : ''}`}
               onClick={() => setSelectedPlan(plan.id)}
             >
               {plan.popular && (

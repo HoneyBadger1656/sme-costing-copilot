@@ -31,7 +31,7 @@ class ClientUpdate(BaseModel):
 class ClientResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
-    id: str
+    id: int
     business_name: str
     email: str
     phone: Optional[str]
@@ -60,6 +60,7 @@ def create_client(
         annual_revenue=client_data.annual_revenue or 0.0,
         current_debtors=client_data.current_debtors or 0.0,
         average_credit_days=client_data.average_credit_days or 30,
+        user_id=current_user.id,
         organization_id=current_user.organization_id
     )
     db.add(client)

@@ -7,17 +7,18 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [clients, setClients] = useState([])
+  const [stats, setStats] = useState({ evaluations: 0, margin: '--' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [debugInfo, setDebugInfo] = useState('')
 
   useEffect(() => {
     let isMounted = true
-    
+
     const fetchData = async () => {
       try {
         setDebugInfo('Starting fetch...')
-        
+
         if (typeof window === 'undefined') {
           setDebugInfo('Not browser')
           setLoading(false)
@@ -34,7 +35,7 @@ export default function Dashboard() {
           setLoading(false)
           return
         }
-        
+
         if (!token) {
           setError('Please login first')
           setLoading(false)
@@ -70,9 +71,29 @@ export default function Dashboard() {
           setDebugInfo(prev => prev + '\nClients error: ' + e.message)
         }
 
+        // Fetch stats from first client if available
+        let statsData = { evaluations: 0, margin: '--' }
+        if (clientsData.length > 0) {
+          try {
+            const firstClientId = clientsData[0]?.id
+            const res = await fetch(`${API_BASE_URL}/api/financials/profitability?client_id=${firstClientId}&days=30`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+            if (res.ok) {
+              const profData = await res.json()
+              statsData.evaluations = profData?.summary?.order_count || 0
+              const marginPct = profData?.summary?.margin_percentage
+              statsData.margin = (marginPct != null && marginPct !== 0) ? `${marginPct}%` : '--'
+            }
+          } catch (e) {
+            setDebugInfo(prev => prev + '\nStats error: ' + e.message)
+          }
+        }
+
         if (isMounted) {
           setUser(userData)
           setClients(clientsData)
+          setStats(statsData)
           setLoading(false)
         }
       } catch (e) {
@@ -128,11 +149,11 @@ export default function Dashboard() {
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-gray-500 text-sm">Evaluations</h3>
-            <p className="text-3xl font-bold mt-2">0</p>
+            <p className="text-3xl font-bold mt-2">{stats.evaluations}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-gray-500 text-sm">Margin</h3>
-            <p className="text-3xl font-bold mt-2">--</p>
+            <p className="text-3xl font-bold mt-2">{stats.margin}</p>
           </div>
         </div>
 

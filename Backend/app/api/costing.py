@@ -2,17 +2,19 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.api.auth import get_current_user
-from app.models.models import Product, Order, OrderItem, User
+from app.models.models import Product, Order, OrderItem, BOMItem, User
 from app.services.costing_service import CostingService
+from app.services.costing_formulas import get_all_formulas, calculate_formula
 
-router = APIRouter(prefix="/api/costing", tags=["costing"])
+router = APIRouter(tags=["costing"])
 
-# Request/Response models
+# ── Request / Response models ─────────────────────────────────────────
+
 class ProductCostingRequest(BaseModel):
     raw_material_cost: float
     labour_cost_per_unit: float
@@ -53,6 +55,28 @@ class EvaluateOrderResponse(BaseModel):
     recommendations: str
     should_accept: bool
 
+class FormulaCalculateRequest(BaseModel):
+    inputs: Dict[str, Any]
+
+class BOMItemCreate(BaseModel):
+    component_name: str
+    quantity: float
+    unit: str = "pcs"
+    unit_cost: float
+    notes: Optional[str] = None
+
+class BOMItemResponse(BaseModel):
+    id: int
+    product_id: int
+    component_name: str
+    quantity: float
+    unit: str
+    unit_cost: float
+    total_cost: float
+    notes: Optional[str] = None
+
+
+# ── Existing endpoints ────────────────────────────────────────────────
 
 @router.post("/calculate-product-cost", response_model=ProductCostingResponse)
 def calculate_product_cost(
@@ -60,7 +84,6 @@ def calculate_product_cost(
     current_user: User = Depends(get_current_user)
 ):
     """Quick cost calculation without saving to database"""
-    # Create temporary product object
     temp_product = Product(
         raw_material_cost=request.raw_material_cost,
         labour_cost_per_unit=request.labour_cost_per_unit,
@@ -71,7 +94,6 @@ def calculate_product_cost(
     
     result = CostingService.calculate_product_unit_cost(temp_product)
     
-    # Add margin percentage
     if result["final_selling_price"] > 0:
         result["margin_percentage"] = round(
             (result["margin_amount"] / result["final_selling_price"]) * 100, 2
@@ -88,11 +110,7 @@ def evaluate_order_quick(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Quick order evaluation without creating order in DB
-    Used for the /evaluate page real-time calculations
-    """
-    # Calculate totals
+    """Quick order evaluation without creating order in DB"""
     total_cost = request.cost_price * request.quantity
     total_revenue = request.selling_price * request.quantity
     gross_margin = total_revenue - total_cost
@@ -104,9 +122,7 @@ def evaluate_order_quick(
     
     working_capital_blocked = round(total_cost * (request.credit_days / 365), 2)
     
-    # Simple evaluation logic
     score = 100
-    suggestions = []
     
     if margin_percentage < 10:
         score -= 40
@@ -152,7 +168,6 @@ def recalculate_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Check ownership
     if order.client.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
@@ -166,3 +181,106 @@ def recalculate_order(
         "margin_percentage": order.margin_percentage,
         "evaluation": evaluation
     }
+
+
+# ── Formula library endpoints ─────────────────────────────────────────
+
+@router.get("/formulas")
+def list_formulas():
+    """Return all 82 costing formulas grouped by 13 categories."""
+    return get_all_formulas()
+
+
+@router.post("/formulas/{formula_id}/calculate")
+def run_formula(
+    formula_id: str,
+    request: FormulaCalculateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Calculate a specific formula given input values."""
+    try:
+        result = calculate_formula(formula_id, request.inputs)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── BOM (Bill of Materials) endpoints ─────────────────────────────────
+
+@router.get("/products/{product_id}/bom")
+def list_bom_items(
+    product_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all BOM components for a product."""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    items = db.query(BOMItem).filter(BOMItem.product_id == product_id).all()
+    return [
+        {
+            "id": item.id,
+            "product_id": item.product_id,
+            "component_name": item.component_name,
+            "quantity": item.quantity,
+            "unit": item.unit,
+            "unit_cost": item.unit_cost,
+            "total_cost": round(item.quantity * item.unit_cost, 2),
+            "notes": item.notes,
+        }
+        for item in items
+    ]
+
+
+@router.post("/products/{product_id}/bom")
+def add_bom_item(
+    product_id: int,
+    request: BOMItemCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add a BOM component to a product."""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    item = BOMItem(
+        product_id=product_id,
+        component_name=request.component_name,
+        quantity=request.quantity,
+        unit=request.unit,
+        unit_cost=request.unit_cost,
+        notes=request.notes,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    
+    return {
+        "id": item.id,
+        "product_id": item.product_id,
+        "component_name": item.component_name,
+        "quantity": item.quantity,
+        "unit": item.unit,
+        "unit_cost": item.unit_cost,
+        "total_cost": round(item.quantity * item.unit_cost, 2),
+        "notes": item.notes,
+    }
+
+
+@router.delete("/bom/{bom_id}")
+def delete_bom_item(
+    bom_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a BOM component."""
+    item = db.query(BOMItem).filter(BOMItem.id == bom_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="BOM item not found")
+    
+    db.delete(item)
+    db.commit()
+    return {"message": "BOM item deleted", "id": bom_id}

@@ -61,6 +61,8 @@ class Client(Base):
     products = relationship("Product", back_populates="client")
     orders = relationship("Order", back_populates="client")
     ledgers = relationship("Ledger", back_populates="client")
+    financial_statements = relationship("FinancialStatement", back_populates="client")
+    financial_ratios = relationship("FinancialRatio", back_populates="client")
 
 
 class Product(Base):
@@ -96,9 +98,10 @@ class BOMItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     component_name = Column(String(255), nullable=False)
-    quantity_per_unit = Column(Float, nullable=False)
-    cost_per_component = Column(Float, nullable=False)
-    supplier = Column(String(255))
+    quantity = Column(Float, nullable=False)
+    unit = Column(String(50), default="pcs")
+    unit_cost = Column(Float, nullable=False)
+    notes = Column(Text)
     
     product = relationship("Product", back_populates="bom_items")
 
@@ -237,6 +240,58 @@ class IntegrationSync(Base):
     
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
+
+
+class FinancialStatement(Base):
+    """Financial statements - Balance Sheet, P&L, Cash Flow"""
+    __tablename__ = "financial_statements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    statement_type = Column(String(50), nullable=False)  # balance_sheet, profit_loss, cash_flow
+    period_type = Column(String(20), nullable=False)  # monthly, quarterly, yearly
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    
+    # Financial data
+    financial_data = Column(JSON, nullable=False)  # structured financial data
+    
+    # Computed metrics
+    current_ratio = Column(Float)
+    quick_ratio = Column(Float)
+    debt_equity_ratio = Column(Float)
+    roa = Column(Float)
+    roe = Column(Float)
+    gross_margin = Column(Float)
+    net_margin = Column(Float)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    client = relationship("Client")
+
+
+class FinancialRatio(Base):
+    """Stored financial ratios for historical tracking"""
+    __tablename__ = "financial_ratios"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    statement_id = Column(Integer, ForeignKey("financial_statements.id"))
+    
+    # Ratio categories
+    ratio_category = Column(String(50), nullable=False)  # liquidity, solvency, profitability, efficiency
+    ratio_name = Column(String(100), nullable=False)
+    ratio_value = Column(Float, nullable=False)
+    
+    # Benchmarking
+    industry_average = Column(Float)
+    benchmark_source = Column(String(100))  # industry_report, custom
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    client = relationship("Client")
+    statement = relationship("FinancialStatement")
 
 
 class ChatMessage(Base):

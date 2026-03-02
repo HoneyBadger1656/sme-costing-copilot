@@ -4,6 +4,8 @@
 
 import { useState, useEffect } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function ScenarioManager() {
   const [scenarios, setScenarios] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -34,7 +36,7 @@ export default function ScenarioManager() {
           : 1;
 
       const response = await fetch(
-        `http://localhost:8000/api/scenarios?client_id=${clientId}`,
+        `${API_BASE_URL}/api/scenarios?client_id=${clientId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -89,7 +91,7 @@ export default function ScenarioManager() {
       }
 
       const response = await fetch(
-        `http://localhost:8000/api/scenarios?client_id=${clientId}`,
+        `${API_BASE_URL}/api/scenarios?client_id=${clientId}`,
         {
           method: "POST",
           headers: {
@@ -136,7 +138,7 @@ export default function ScenarioManager() {
         : null;
 
       const response = await fetch(
-        "http://localhost:8000/api/scenarios/compare",
+        `${API_BASE_URL}/api/scenarios/compare`,
         {
           method: "POST",
           headers: {
@@ -225,8 +227,8 @@ export default function ScenarioManager() {
                       <div className="text-sm text-gray-500">
                         {scenario.created_at
                           ? new Date(
-                              scenario.created_at
-                            ).toLocaleDateString()
+                            scenario.created_at
+                          ).toLocaleDateString()
                           : ""}
                       </div>
                     </div>
@@ -304,11 +306,10 @@ export default function ScenarioManager() {
                               Revenue Impact
                             </div>
                             <div
-                              className={`font-semibold ${
-                                scenario.impact_summary.revenue_change >= 0
+                              className={`font-semibold ${scenario.impact_summary.revenue_change >= 0
                                   ? "text-green-600"
                                   : "text-red-600"
-                              }`}
+                                }`}
                             >
                               ₹
                               {scenario.impact_summary.revenue_change.toLocaleString()}
@@ -332,11 +333,10 @@ export default function ScenarioManager() {
                               Margin Impact
                             </div>
                             <div
-                              className={`font-semibold ${
-                                scenario.impact_summary.margin_change >= 0
+                              className={`font-semibold ${scenario.impact_summary.margin_change >= 0
                                   ? "text-green-600"
                                   : "text-red-600"
-                              }`}
+                                }`}
                             >
                               ₹
                               {scenario.impact_summary.margin_change.toLocaleString()}
@@ -357,11 +357,10 @@ export default function ScenarioManager() {
                               WC Impact
                             </div>
                             <div
-                              className={`font-semibold ${
-                                scenario.impact_summary.wc_change <= 0
+                              className={`font-semibold ${scenario.impact_summary.wc_change <= 0
                                   ? "text-green-600"
                                   : "text-orange-600"
-                              }`}
+                                }`}
                             >
                               ₹
                               {Math.abs(
@@ -468,29 +467,26 @@ export default function ScenarioManager() {
                   <tr key={s.id} className="border-b">
                     <td className="px-4 py-3 font-medium">{s.name}</td>
                     <td
-                      className={`px-4 py-3 text-right ${
-                        s.revenue_change >= 0
+                      className={`px-4 py-3 text-right ${s.revenue_change >= 0
                           ? "text-green-600"
                           : "text-red-600"
-                      }`}
+                        }`}
                     >
                       ₹{s.revenue_change.toLocaleString()}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right ${
-                        s.margin_change >= 0
+                      className={`px-4 py-3 text-right ${s.margin_change >= 0
                           ? "text-green-600"
                           : "text-red-600"
-                      }`}
+                        }`}
                     >
                       ₹{s.margin_change.toLocaleString()}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right ${
-                        s.wc_change <= 0
+                      className={`px-4 py-3 text-right ${s.wc_change <= 0
                           ? "text-green-600"
                           : "text-orange-600"
-                      }`}
+                        }`}
                     >
                       ₹{Math.abs(s.wc_change).toLocaleString()}
                       <span className="text-xs ml-1">
