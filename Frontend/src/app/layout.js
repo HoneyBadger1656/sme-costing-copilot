@@ -13,7 +13,21 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "SME Costing Copilot",
-  description: "AI-powered costing and financial management for Indian SMEs",
+  description: "AI-powered costing and financial management for Indian SMEs. Calculate costs, analyze scenarios, and make data-driven decisions with our comprehensive financial platform.",
+  keywords: "SME, costing, financial management, India, AI, Tally, Zoho Books, cost calculation, scenario analysis",
+  author: "SME Costing Copilot Team",
+  robots: "index, follow",
+  openGraph: {
+    title: "SME Costing Copilot",
+    description: "AI-powered costing and financial management for Indian SMEs",
+    type: "website",
+    locale: "en_IN",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {

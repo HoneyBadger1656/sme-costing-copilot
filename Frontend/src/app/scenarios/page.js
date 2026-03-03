@@ -13,11 +13,19 @@ export default function ScenarioManager() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedScenarios, setSelectedScenarios] = useState([]);
   const [comparison, setComparison] = useState(null);
+  const [baselineData, setBaselineData] = useState(null);
+  const [quickScenarioText, setQuickScenarioText] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     rawMaterialChange: "0",
+    labourCostChange: "0",
+    overheadPercentChange: "0",
+    sellingPriceChange: "0",
+    gstRateChange: "0",
+    interestRateChange: "0",
+    inventoryHoldingPeriodChange: "0",
     creditDaysChange: "0",
     volumeChangePercent: "0",
     marginChangePercent: "0",
@@ -25,8 +33,49 @@ export default function ScenarioManager() {
 
   useEffect(() => {
     fetchScenarios();
+    fetchBaselineData();
   }, []);
 
+  const fetchBaselineData = async () => {
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("token")
+        : null;
+      const clientId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("selectedClientId") || 1
+          : 1;
+
+      // We'll create a dummy scenario to get baseline data
+      const response = await fetch(
+        `${API_BASE_URL}/api/scenarios?client_id=${clientId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: "Baseline",
+            description: "Current state",
+            changes: {},
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setBaselineData(data.impact_summary);
+        // Delete the dummy scenario
+        await fetch(`${API_BASE_URL}/api/scenarios/${data.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching baseline data:", error);
+    }
+  };
   const fetchScenarios = async () => {
     try {
       const token = typeof window !== "undefined"
@@ -57,6 +106,54 @@ export default function ScenarioManager() {
     }
   };
 
+  const handleQuickScenario = async () => {
+    if (!quickScenarioText.trim()) return;
+
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("token")
+        : null;
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/scenarios/parse-quick-scenario`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: quickScenarioText }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to parse scenario");
+      }
+
+      const parsed = await response.json();
+      
+      // Pre-fill the form with parsed data
+      setFormData({
+        name: parsed.name,
+        description: parsed.description,
+        rawMaterialChange: parsed.changes.raw_material_cost_change?.toString() || "0",
+        labourCostChange: parsed.changes.labour_cost_change?.toString() || "0",
+        overheadPercentChange: parsed.changes.overhead_percent_change?.toString() || "0",
+        sellingPriceChange: parsed.changes.selling_price_change?.toString() || "0",
+        gstRateChange: parsed.changes.gst_rate_change?.toString() || "0",
+        interestRateChange: parsed.changes.interest_rate_change?.toString() || "0",
+        inventoryHoldingPeriodChange: parsed.changes.inventory_holding_period_change?.toString() || "0",
+        creditDaysChange: parsed.changes.credit_days_change?.toString() || "0",
+        volumeChangePercent: parsed.changes.volume_change_percent?.toString() || "0",
+        marginChangePercent: parsed.changes.margin_change_percent?.toString() || "0",
+      });
+
+      setShowCreateModal(true);
+      setQuickScenarioText("");
+    } catch (error) {
+      alert("Error parsing scenario: " + error.message);
+    }
+  };
   const handleCreateScenario = async (e) => {
     e.preventDefault();
 
@@ -71,25 +168,34 @@ export default function ScenarioManager() {
 
       const changes = {};
       if (parseFloat(formData.rawMaterialChange || "0") !== 0) {
-        changes.raw_material_cost_change = parseFloat(
-          formData.rawMaterialChange
-        );
+        changes.raw_material_cost_change = parseFloat(formData.rawMaterialChange);
+      }
+      if (parseFloat(formData.labourCostChange || "0") !== 0) {
+        changes.labour_cost_change = parseFloat(formData.labourCostChange);
+      }
+      if (parseFloat(formData.overheadPercentChange || "0") !== 0) {
+        changes.overhead_percent_change = parseFloat(formData.overheadPercentChange);
+      }
+      if (parseFloat(formData.sellingPriceChange || "0") !== 0) {
+        changes.selling_price_change = parseFloat(formData.sellingPriceChange);
+      }
+      if (parseFloat(formData.gstRateChange || "0") !== 0) {
+        changes.gst_rate_change = parseFloat(formData.gstRateChange);
+      }
+      if (parseFloat(formData.interestRateChange || "0") !== 0) {
+        changes.interest_rate_change = parseFloat(formData.interestRateChange);
+      }
+      if (parseFloat(formData.inventoryHoldingPeriodChange || "0") !== 0) {
+        changes.inventory_holding_period_change = parseFloat(formData.inventoryHoldingPeriodChange);
       }
       if (parseInt(formData.creditDaysChange || "0", 10) !== 0) {
-        changes.credit_days_change = parseInt(
-          formData.creditDaysChange,
-          10
-        );
+        changes.credit_days_change = parseInt(formData.creditDaysChange, 10);
       }
       if (parseFloat(formData.volumeChangePercent || "0") !== 0) {
-        changes.volume_change_percent = parseFloat(
-          formData.volumeChangePercent
-        );
+        changes.volume_change_percent = parseFloat(formData.volumeChangePercent);
       }
       if (parseFloat(formData.marginChangePercent || "0") !== 0) {
-        changes.margin_change_percent = parseFloat(
-          formData.marginChangePercent
-        );
+        changes.margin_change_percent = parseFloat(formData.marginChangePercent);
       }
 
       const response = await fetch(
@@ -119,6 +225,12 @@ export default function ScenarioManager() {
         name: "",
         description: "",
         rawMaterialChange: "0",
+        labourCostChange: "0",
+        overheadPercentChange: "0",
+        sellingPriceChange: "0",
+        gstRateChange: "0",
+        interestRateChange: "0",
+        inventoryHoldingPeriodChange: "0",
         creditDaysChange: "0",
         volumeChangePercent: "0",
         marginChangePercent: "0",
@@ -127,7 +239,6 @@ export default function ScenarioManager() {
       alert("Error creating scenario: " + error.message);
     }
   };
-
   const handleCompare = async () => {
     if (selectedScenarios.length < 2) {
       alert("Select at least 2 scenarios to compare");
@@ -192,6 +303,32 @@ export default function ScenarioManager() {
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
 
+        {/* Quick Scenario Input */}
+        <div className="bg-white rounded-lg shadow mb-8 p-6">
+          <h2 className="text-xl font-semibold mb-4">Quick Scenario</h2>
+          <p className="text-gray-600 mb-4">
+            Describe your scenario in plain language, and we'll set up the parameters for you.
+          </p>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={quickScenarioText}
+              onChange={(e) => setQuickScenarioText(e.target.value)}
+              placeholder="e.g., What if raw material costs go up by 15%?"
+              className="flex-1 px-4 py-2 border rounded-lg"
+              onKeyPress={(e) => e.key === 'Enter' && handleQuickScenario()}
+            />
+            <button
+              onClick={handleQuickScenario}
+              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
+            >
+              Parse & Create
+            </button>
+          </div>
+          <div className="mt-2 text-sm text-gray-500">
+            Try: "raw material up 10%", "labour cost down ₹5", "credit days increase 15 days", "volume up 20%"
+          </div>
+        </div>
         {/* Scenario list */}
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="p-6 border-b">
@@ -240,34 +377,68 @@ export default function ScenarioManager() {
                       </div>
                     </div>
 
-                    {/* Changes */}
-                    <div className="grid grid-cols-4 gap-4 mb-4">
+                    {/* Changes Grid - More Parameters */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
                       {scenario.changes &&
                         scenario.changes.raw_material_cost_change != null && (
                           <div className="bg-blue-50 p-3 rounded">
                             <div className="text-xs text-gray-600">
-                              RM Cost Change
+                              RM Cost
                             </div>
                             <div className="font-semibold">
-                              ₹
-                              {scenario.changes.raw_material_cost_change > 0
-                                ? "+"
-                                : ""}
+                              ₹{scenario.changes.raw_material_cost_change > 0 ? "+" : ""}
                               {scenario.changes.raw_material_cost_change}
                             </div>
                           </div>
                         )}
 
                       {scenario.changes &&
-                        scenario.changes.credit_days_change != null && (
+                        scenario.changes.labour_cost_change != null && (
                           <div className="bg-purple-50 p-3 rounded">
+                            <div className="text-xs text-gray-600">
+                              Labour Cost
+                            </div>
+                            <div className="font-semibold">
+                              ₹{scenario.changes.labour_cost_change > 0 ? "+" : ""}
+                              {scenario.changes.labour_cost_change}
+                            </div>
+                          </div>
+                        )}
+
+                      {scenario.changes &&
+                        scenario.changes.overhead_percent_change != null && (
+                          <div className="bg-orange-50 p-3 rounded">
+                            <div className="text-xs text-gray-600">
+                              Overhead %
+                            </div>
+                            <div className="font-semibold">
+                              {scenario.changes.overhead_percent_change > 0 ? "+" : ""}
+                              {scenario.changes.overhead_percent_change}%
+                            </div>
+                          </div>
+                        )}
+
+                      {scenario.changes &&
+                        scenario.changes.selling_price_change != null && (
+                          <div className="bg-green-50 p-3 rounded">
+                            <div className="text-xs text-gray-600">
+                              Selling Price
+                            </div>
+                            <div className="font-semibold">
+                              ₹{scenario.changes.selling_price_change > 0 ? "+" : ""}
+                              {scenario.changes.selling_price_change}
+                            </div>
+                          </div>
+                        )}
+
+                      {scenario.changes &&
+                        scenario.changes.credit_days_change != null && (
+                          <div className="bg-indigo-50 p-3 rounded">
                             <div className="text-xs text-gray-600">
                               Credit Days
                             </div>
                             <div className="font-semibold">
-                              {scenario.changes.credit_days_change > 0
-                                ? "+"
-                                : ""}
+                              {scenario.changes.credit_days_change > 0 ? "+" : ""}
                               {scenario.changes.credit_days_change} days
                             </div>
                           </div>
@@ -275,35 +446,17 @@ export default function ScenarioManager() {
 
                       {scenario.changes &&
                         scenario.changes.volume_change_percent != null && (
-                          <div className="bg-green-50 p-3 rounded">
+                          <div className="bg-teal-50 p-3 rounded">
                             <div className="text-xs text-gray-600">
                               Volume
                             </div>
                             <div className="font-semibold">
-                              {scenario.changes.volume_change_percent > 0
-                                ? "+"
-                                : ""}
+                              {scenario.changes.volume_change_percent > 0 ? "+" : ""}
                               {scenario.changes.volume_change_percent}%
                             </div>
                           </div>
                         )}
-
-                      {scenario.changes &&
-                        scenario.changes.margin_change_percent != null && (
-                          <div className="bg-yellow-50 p-3 rounded">
-                            <div className="text-xs text-gray-600">
-                              Margin
-                            </div>
-                            <div className="font-semibold">
-                              {scenario.changes.margin_change_percent > 0
-                                ? "+"
-                                : ""}
-                              {scenario.changes.margin_change_percent}%
-                            </div>
-                          </div>
-                        )}
                     </div>
-
                     {/* Impact summary */}
                     {scenario.impact_summary && (
                       <div className="bg-gray-50 p-4 rounded-lg">
@@ -318,19 +471,10 @@ export default function ScenarioManager() {
                                   : "text-red-600"
                                 }`}
                             >
-                              ₹
-                              {scenario.impact_summary.revenue_change.toLocaleString()}
+                              ₹{scenario.impact_summary.revenue_change.toLocaleString()}
                               <span className="text-xs ml-1">
-                                (
-                                {scenario.impact_summary
-                                  .revenue_change_percent > 0
-                                  ? "+"
-                                  : ""}
-                                {
-                                  scenario.impact_summary
-                                    .revenue_change_percent
-                                }
-                                %)
+                                ({scenario.impact_summary.revenue_change_percent > 0 ? "+" : ""}
+                                {scenario.impact_summary.revenue_change_percent}%)
                               </span>
                             </div>
                           </div>
@@ -345,16 +489,10 @@ export default function ScenarioManager() {
                                   : "text-red-600"
                                 }`}
                             >
-                              ₹
-                              {scenario.impact_summary.margin_change.toLocaleString()}
+                              ₹{scenario.impact_summary.margin_change.toLocaleString()}
                               <span className="text-xs ml-1">
-                                (
-                                {scenario.impact_summary
-                                  .margin_change_percent > 0
-                                  ? "+"
-                                  : ""}
-                                {scenario.impact_summary.margin_change_percent}
-                                %)
+                                ({scenario.impact_summary.margin_change_percent > 0 ? "+" : ""}
+                                {scenario.impact_summary.margin_change_percent}%)
                               </span>
                             </div>
                           </div>
@@ -369,14 +507,9 @@ export default function ScenarioManager() {
                                   : "text-orange-600"
                                 }`}
                             >
-                              ₹
-                              {Math.abs(
-                                scenario.impact_summary.wc_change
-                              ).toLocaleString()}
+                              ₹{Math.abs(scenario.impact_summary.wc_change).toLocaleString()}
                               <span className="text-xs ml-1">
-                                {scenario.impact_summary.wc_change > 0
-                                  ? "more blocked"
-                                  : "freed"}
+                                {scenario.impact_summary.wc_change > 0 ? "more blocked" : "freed"}
                               </span>
                             </div>
                           </div>
@@ -417,7 +550,6 @@ export default function ScenarioManager() {
             )}
           </div>
         </div>
-
         {/* Comparison results */}
         {comparison && (
           <div className="bg-white rounded-lg shadow p-6">
@@ -506,153 +638,301 @@ export default function ScenarioManager() {
             </table>
           </div>
         )}
-
-        {/* Create Scenario Modal */}
+        {/* Create Scenario Modal - Side by Side View */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-8 max-w-2xl w-full">
+            <div className="bg-white rounded-lg p-8 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold mb-6">
                 Create What-If Scenario
               </h2>
 
               <form onSubmit={handleCreateScenario}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Scenario Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      required
-                      placeholder="e.g., Lower RM cost by ₹10"
-                      className="w-full px-4 py-2 border rounded-lg"
-                    />
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Scenario Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        required
+                        placeholder="e.g., Lower RM cost by ₹10"
+                        className="w-full px-4 py-2 border rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Description
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Optional: Explain what you're testing"
+                        className="w-full px-4 py-2 border rounded-lg"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Optional: Explain what you're testing"
-                      rows={2}
-                      className="w-full px-4 py-2 border rounded-lg"
-                    />
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-4">
-                      What changes do you want to test?
+                  {/* Side-by-Side Parameter View */}
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-4 text-center">
+                      Actual Data vs Hypothetical Changes
                     </h3>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-8">
+                      {/* Left Column - Actual Data */}
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Raw Material Cost Change (₹)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.rawMaterialChange}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              rawMaterialChange: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., -10 for ₹10 reduction"
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Use negative for reduction
-                        </p>
+                        <h4 className="font-medium text-gray-700 mb-4 text-center bg-gray-100 py-2 rounded">
+                          📊 Current Actual Data
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="bg-blue-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Raw Material Cost</div>
+                            <div className="font-semibold">₹{baselineData?.average_rm_cost || "Loading..."}</div>
+                          </div>
+                          <div className="bg-purple-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Labour Cost</div>
+                            <div className="font-semibold">₹{baselineData?.average_labour_cost || "Loading..."}</div>
+                          </div>
+                          <div className="bg-orange-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Credit Days</div>
+                            <div className="font-semibold">{baselineData?.average_credit_days || "Loading..."} days</div>
+                          </div>
+                          <div className="bg-green-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Total Revenue</div>
+                            <div className="font-semibold">₹{baselineData?.total_revenue?.toLocaleString() || "Loading..."}</div>
+                          </div>
+                          <div className="bg-indigo-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Total Margin</div>
+                            <div className="font-semibold">₹{baselineData?.total_margin?.toLocaleString() || "Loading..."}</div>
+                          </div>
+                          <div className="bg-teal-50 p-3 rounded">
+                            <div className="text-sm text-gray-600">Working Capital Blocked</div>
+                            <div className="font-semibold">₹{baselineData?.working_capital_blocked?.toLocaleString() || "Loading..."}</div>
+                          </div>
+                        </div>
                       </div>
-
+                      {/* Right Column - Hypothetical Changes */}
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Credit Days Change
-                        </label>
-                        <input
-                          type="number"
-                          value={formData.creditDaysChange}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              creditDaysChange: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., +15 for 15 more days"
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Use + for increase, - for decrease
-                        </p>
+                        <h4 className="font-medium text-gray-700 mb-4 text-center bg-yellow-100 py-2 rounded">
+                          🔄 What-If Changes
+                        </h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Raw Material Cost Change (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.rawMaterialChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  rawMaterialChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., -10 for ₹10 reduction"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Labour Cost Change (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.labourCostChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  labourCostChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., +5 for ₹5 increase"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Overhead Percentage Change (%)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={formData.overheadPercentChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  overheadPercentChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., +2 for 2% increase"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Selling Price Change (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.sellingPriceChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  sellingPriceChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., +20 for ₹20 increase"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              GST Rate Change (%)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={formData.gstRateChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  gstRateChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., +1 for 1% GST increase"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Interest Rate Change (%)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={formData.interestRateChange}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  interestRateChange: e.target.value,
+                                })
+                              }
+                              placeholder="e.g., +0.5 for 0.5% increase"
+                              className="w-full px-3 py-2 border rounded"
+                            />
+                          </div>
+                        </div>
                       </div>
+                    </div>
+                    {/* Additional Parameters Row */}
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="font-medium text-gray-700 mb-4">Additional Parameters</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Inventory Holding Period Change (days)
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.inventoryHoldingPeriodChange}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                inventoryHoldingPeriodChange: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., +10 for 10 more days"
+                            className="w-full px-3 py-2 border rounded"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Volume Change (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.volumeChangePercent}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              volumeChangePercent: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., +20 for 20% growth"
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          % increase/decrease in order volume
-                        </p>
-                      </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Credit Days Change
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.creditDaysChange}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                creditDaysChange: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., +15 for 15 more days"
+                            className="w-full px-3 py-2 border rounded"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Margin Change (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.marginChangePercent}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              marginChangePercent: e.target.value,
-                            })
-                          }
-                          placeholder="e.g., -2 for 2% margin drop"
-                          className="w-full px-4 py-2 border rounded-lg"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Change in profit margin %
-                        </p>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Volume Change (%)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={formData.volumeChangePercent}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                volumeChangePercent: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., +20 for 20% growth"
+                            className="w-full px-3 py-2 border rounded"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Margin Change (%)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={formData.marginChangePercent}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                marginChangePercent: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., -2 for 2% margin drop"
+                            className="w-full px-3 py-2 border rounded"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4 mt-6">
+                <div className="flex gap-4 mt-8">
                   <button
                     type="submit"
                     className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
                   >
-                    Create Scenario
+                    Run Scenario Analysis
                   </button>
                   <button
                     type="button"
@@ -666,6 +946,7 @@ export default function ScenarioManager() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </AppLayout>
   );

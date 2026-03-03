@@ -4,11 +4,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import AppLayout from "../../components/layout/AppLayout";
 import PageHeader from "../../components/layout/PageHeader";
-import Card, { CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -365,6 +362,7 @@ export default function FinancialDataPage() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>

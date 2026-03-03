@@ -1,7 +1,7 @@
 # backend/app/services/ai_assistant_service.py
 
 from sqlalchemy.orm import Session
-from app.models.models import ChatMessage, Client, Order, Product, Ledger
+from app.models.models import ChatMessage, Client, Order, Product, Ledger, Scenario, IntegrationSync
 from typing import Dict, List
 import json
 import os
@@ -26,6 +26,7 @@ class AIAssistantService:
         """
         Process user query and generate AI response
         Uses RAG pattern: retrieve relevant data, then generate answer
+        Enhanced with conversation memory
         """
         
         # Classify query type
@@ -34,9 +35,12 @@ class AIAssistantService:
         # Retrieve relevant data based on query type
         context_data = AIAssistantService._retrieve_context(db, client_id, query_type, user_message)
         
-        # Build prompt with context
+        # Get recent conversation history for context
+        recent_messages = AIAssistantService.get_conversation_history(db, client_id, limit=10)
+        
+        # Build prompt with context and conversation memory
         system_prompt = AIAssistantService._build_system_prompt()
-        user_prompt = AIAssistantService._build_user_prompt(user_message, context_data)
+        user_prompt = AIAssistantService._build_user_prompt(user_message, context_data, recent_messages)
         
         # Call LLM
         try:
@@ -48,13 +52,23 @@ class AIAssistantService:
                 }
             
             messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "system", "content": system_prompt}
             ]
+            
+            # Add recent conversation history for context (last 5 messages)
+            if recent_messages:
+                for msg in recent_messages[-5:]:
+                    messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
+            
+            # Add current user message
+            messages.append({"role": "user", "content": user_prompt})
             
             if client_type == "groq":
                 response = client.chat.completions.create(
-                    model="llama-3.1-70b-versatile",
+                    model="llama3-8b-8192",
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1000
@@ -102,10 +116,17 @@ class AIAssistantService:
     
     @staticmethod
     def _classify_query(message: str) -> str:
-        """Classify user query into categories"""
+        """Classify user query into categories using LLM for better accuracy"""
         message_lower = message.lower()
         
-        if any(word in message_lower for word in ["margin", "profit", "profitable", "loss"]):
+        # Enhanced keyword-based classification with more categories
+        if any(word in message_lower for word in ["scenario", "what if", "compare scenario", "best scenario"]):
+            return "scenarios"
+        elif any(word in message_lower for word in ["ratio", "wacc", "roe", "current ratio", "debt equity", "formula"]):
+            return "financial_formulas"
+        elif any(word in message_lower for word in ["tally", "zoho", "integration", "sync", "connection", "import"]):
+            return "integration_status"
+        elif any(word in message_lower for word in ["margin", "profit", "profitable", "loss"]):
             return "profitability"
         elif any(word in message_lower for word in ["cash", "receivable", "payment", "collection", "overdue"]):
             return "cash_flow"
@@ -246,6 +267,88 @@ class AIAssistantService:
                 for o in orders
             ]
         
+        elif query_type == "scenarios":
+            # Get recent scenarios and their results
+            scenarios = db.query(Scenario).filter(
+                Scenario.client_id == client_id
+            ).order_by(Scenario.created_at.desc()).limit(10).all()
+            
+            context["scenarios"] = [
+                {
+                    "name": s.name,
+                    "description": s.description,
+                    "changes": s.changes,
+                    "revenue_impact": s.impact_summary.get("revenue_change", 0),
+                    "margin_impact": s.impact_summary.get("margin_change", 0),
+                    "wc_impact": s.impact_summary.get("wc_change", 0),
+                    "recommendation": s.impact_summary.get("recommendation", ""),
+                    "created_date": s.created_at.strftime("%Y-%m-%d")
+                }
+                for s in scenarios
+            ]
+            
+            # Find best scenarios
+            if scenarios:
+                best_profit = max(scenarios, key=lambda x: x.impact_summary.get("margin_change", 0))
+                best_cash = min(scenarios, key=lambda x: x.impact_summary.get("wc_change", 0))
+                
+                context["best_scenarios"] = {
+                    "best_for_profit": best_profit.name,
+                    "best_for_cash": best_cash.name
+                }
+        
+        elif query_type == "financial_formulas":
+            # Get available financial formulas and recent calculations
+            # This would integrate with the financial formulas service once implemented
+            context["available_formulas"] = [
+                "Current Ratio", "Quick Ratio", "Debt-to-Equity Ratio", 
+                "Working Capital", "WACC", "ROE", "ROCE", 
+                "Gross Profit Margin", "Net Profit Margin"
+            ]
+            
+            # Get basic financial data for formula calculations
+            orders = db.query(Order).filter(
+                Order.client_id == client_id,
+                Order.created_at >= datetime.utcnow() - timedelta(days=30)
+            ).all()
+            
+            if orders:
+                total_revenue = sum(o.total_selling_price for o in orders)
+                total_cost = sum(o.total_cost for o in orders)
+                total_margin = total_revenue - total_cost
+                
+                context["financial_data"] = {
+                    "total_revenue": round(total_revenue, 2),
+                    "total_cost": round(total_cost, 2),
+                    "gross_margin": round(total_margin, 2),
+                    "gross_margin_percent": round((total_margin / total_revenue * 100) if total_revenue > 0 else 0, 2)
+                }
+        
+        elif query_type == "integration_status":
+            # Get integration sync status
+            integrations = db.query(IntegrationSync).filter(
+                IntegrationSync.client_id == client_id
+            ).order_by(IntegrationSync.last_sync.desc()).all()
+            
+            context["integrations"] = [
+                {
+                    "source": i.source_type,
+                    "status": i.status,
+                    "last_sync": i.last_sync.strftime("%Y-%m-%d %H:%M") if i.last_sync else "Never",
+                    "records_synced": i.records_synced,
+                    "error_message": i.error_message
+                }
+                for i in integrations
+            ]
+            
+            # Summary
+            active_integrations = [i for i in integrations if i.status == "success"]
+            context["integration_summary"] = {
+                "total_integrations": len(integrations),
+                "active_integrations": len(active_integrations),
+                "last_successful_sync": max([i.last_sync for i in active_integrations]) if active_integrations else None
+            }
+        
         return context
     
     @staticmethod
@@ -258,6 +361,9 @@ class AIAssistantService:
 3. Explain financial concepts without jargon
 4. Give concrete recommendations when asked
 5. Always cite numbers from the data when available
+6. Analyze uploaded documents and provide business insights
+7. Help with scenario analysis and financial planning
+8. Provide integration status and data sync information
 
 Guidelines:
 - Keep answers under 200 words unless complex analysis needed
@@ -265,6 +371,7 @@ Guidelines:
 - Format large numbers with commas (e.g., ₹1,50,000)
 - If data is insufficient, say so and suggest what data would help
 - Be direct and practical - SME owners want actionable advice, not theory
+- Remember previous conversation context to provide connected responses
 
 When analyzing margins:
 - Below 10% = concerning
@@ -274,11 +381,22 @@ When analyzing margins:
 
 When analyzing cash flow:
 - Overdue > 30 days = immediate action needed
-- Working capital > 60 days of revenue = potential cash crunch"""
+- Working capital > 60 days of revenue = potential cash crunch
+
+When analyzing scenarios:
+- Focus on profit vs cash flow trade-offs
+- Highlight the most balanced option
+- Explain risks and opportunities
+
+When analyzing uploaded files:
+- Extract key financial insights
+- Identify trends and patterns
+- Provide actionable recommendations
+- Compare with existing business data when possible"""
     
     @staticmethod
-    def _build_user_prompt(user_message: str, context_data: Dict) -> str:
-        """Build user prompt with context"""
+    def _build_user_prompt(user_message: str, context_data: Dict, recent_messages: List[Dict] = None) -> str:
+        """Build user prompt with context and conversation memory"""
         prompt = f"User question: {user_message}\n\n"
         
         if context_data:
@@ -287,6 +405,14 @@ When analyzing cash flow:
             prompt += "\n\nUse this data to answer their question specifically."
         else:
             prompt += "No specific data available. Provide general guidance."
+        
+        # Add conversation context if available
+        if recent_messages and len(recent_messages) > 0:
+            prompt += "\n\nRecent conversation context (for reference):\n"
+            for msg in recent_messages[-3:]:  # Last 3 messages for context
+                role = "User" if msg["role"] == "user" else "Assistant"
+                prompt += f"{role}: {msg['content'][:100]}...\n"
+            prompt += "\nUse this context to provide more relevant and connected responses."
         
         return prompt
     
@@ -308,3 +434,101 @@ When analyzing cash flow:
             }
             for m in messages
         ]
+    
+    @staticmethod
+    def chat_with_file(db: Session, client_id: int, user_message: str, file_name: str, file_content: str) -> Dict:
+        """
+        Process user query with uploaded file content
+        """
+        
+        # Classify as file analysis
+        query_type = "file_analysis"
+        
+        # Build context with file content
+        context_data = {
+            "file_name": file_name,
+            "file_content": file_content[:3000],  # Limit content
+            "file_type": "document"
+        }
+        
+        # Get recent conversation history for context
+        recent_messages = AIAssistantService.get_conversation_history(db, client_id, limit=5)
+        
+        # Build prompt with file context
+        system_prompt = AIAssistantService._build_system_prompt()
+        user_prompt = f"""User uploaded a file: {file_name}
+
+User question: {user_message}
+
+File content:
+{file_content}
+
+Please analyze this file and answer the user's question. Focus on:
+1. Key insights from the data
+2. Financial implications if applicable
+3. Actionable recommendations
+4. Any patterns or trends you notice
+
+Keep your response practical and business-focused."""
+        
+        # Call LLM
+        try:
+            if not client:
+                return {
+                    "message": "AI Assistant is not configured. Please set GROQ_API_KEY or OPENAI_API_KEY environment variable to enable AI features.",
+                    "query_type": "error",
+                    "data_used": context_data
+                }
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            if client_type == "groq":
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1500  # More tokens for file analysis
+                )
+            else:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1500
+                )
+            
+            assistant_message = response.choices[0].message.content
+            
+            # Save conversation with file context
+            db.add(ChatMessage(
+                client_id=client_id,
+                role="user",
+                content=f"[File: {file_name}] {user_message}",
+                query_type=query_type
+            ))
+            
+            db.add(ChatMessage(
+                client_id=client_id,
+                role="assistant",
+                content=assistant_message,
+                query_type=query_type,
+                data_retrieved=context_data
+            ))
+            
+            db.commit()
+            
+            return {
+                "message": assistant_message,
+                "query_type": query_type,
+                "data_used": context_data
+            }
+            
+        except Exception as e:
+            return {
+                "message": f"Sorry, I encountered an error analyzing the file: {str(e)}",
+                "query_type": "error",
+                "data_used": {}
+            }

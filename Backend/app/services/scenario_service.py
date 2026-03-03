@@ -111,8 +111,50 @@ class ScenarioService:
             # Assume RM is 60% of total cost
             cost_impact = rm_change * (base_data["total_cost"] * 0.6 / base_data["average_rm_cost"]) if base_data["average_rm_cost"] > 0 else 0
             new_cost += cost_impact
-            
             impact["cost_change"] += cost_impact
+        
+        # Apply labour cost change
+        if "labour_cost_change" in changes:
+            labour_change = changes["labour_cost_change"]
+            # Assume labour is 25% of total cost
+            cost_impact = labour_change * (base_data["total_cost"] * 0.25 / base_data["average_labour_cost"]) if base_data["average_labour_cost"] > 0 else 0
+            new_cost += cost_impact
+            impact["cost_change"] += cost_impact
+        
+        # Apply overhead percentage change
+        if "overhead_percent_change" in changes:
+            overhead_change = changes["overhead_percent_change"]
+            # Assume overhead is 15% of total cost
+            overhead_impact = base_data["total_cost"] * 0.15 * (overhead_change / 100)
+            new_cost += overhead_impact
+            impact["cost_change"] += overhead_impact
+        
+        # Apply selling price change
+        if "selling_price_change" in changes:
+            price_change = changes["selling_price_change"]
+            new_revenue += price_change * base_data["order_count"]
+        
+        # Apply GST rate change
+        if "gst_rate_change" in changes:
+            gst_change = changes["gst_rate_change"]
+            # GST affects final selling price
+            gst_impact = new_revenue * (gst_change / 100)
+            new_revenue += gst_impact
+        
+        # Apply interest rate change (affects working capital cost)
+        if "interest_rate_change" in changes:
+            interest_change = changes["interest_rate_change"]
+            # Interest cost on working capital
+            interest_impact = new_wc * (interest_change / 100) * (1/12)  # Monthly impact
+            new_cost += interest_impact
+            impact["cost_change"] += interest_impact
+        
+        # Apply inventory holding period change
+        if "inventory_holding_period_change" in changes:
+            holding_change = changes["inventory_holding_period_change"]
+            # Longer holding period increases working capital
+            wc_impact = new_cost * (holding_change / 365)
+            new_wc += wc_impact
         
         # Apply credit days change
         if "credit_days_change" in changes:
@@ -143,7 +185,7 @@ class ScenarioService:
             if target_margin_pct > 0:
                 new_revenue = new_cost / (1 - target_margin_pct / 100)
         
-        # Calculate changes
+        # Calculate final changes
         impact["revenue_change"] = round(new_revenue - base_data["total_revenue"], 2)
         impact["revenue_change_percent"] = round(impact["revenue_change"] / base_data["total_revenue"] * 100, 2) if base_data["total_revenue"] > 0 else 0
         
@@ -153,6 +195,11 @@ class ScenarioService:
         new_margin = new_revenue - new_cost
         impact["margin_change"] = round(new_margin - base_data["total_margin"], 2)
         impact["margin_change_percent"] = round(impact["margin_change"] / base_data["total_margin"] * 100, 2) if base_data["total_margin"] > 0 else 0
+        
+        # Update WC change if not already calculated
+        if impact["wc_change"] == 0:
+            impact["wc_change"] = round(new_wc - base_data["working_capital_blocked"], 2)
+            impact["wc_change_percent"] = round(impact["wc_change"] / base_data["working_capital_blocked"] * 100, 2) if base_data["working_capital_blocked"] > 0 else 0
         
         # Generate insights
         impact["cash_flow_impact"] = ScenarioService._generate_cash_flow_insight(impact, changes)

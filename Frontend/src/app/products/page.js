@@ -405,11 +405,11 @@ export default function Products() {
                   </React.Fragment>
                 );
               })}
+              </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
-      </div>
 
         {/* Add Product Modal */}
         {showForm && (
