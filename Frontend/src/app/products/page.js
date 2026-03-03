@@ -4,6 +4,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import AppLayout from "../../components/layout/AppLayout";
+import PageHeader from "../../components/layout/PageHeader";
+import Card, { CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -201,49 +205,56 @@ export default function Products() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Products &amp; Costing Rules</h1>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
+    <AppLayout>
+      <PageHeader
+        title="Products & Costing Rules"
+        description="Manage products with detailed costing and BOM"
+        icon="📦"
+        breadcrumbs={[
+          { name: "Dashboard", href: "/dashboard" },
+          { name: "Products" }
+        ]}
+        actions={
+          <Button onClick={() => setShowForm(true)}>
             + Add Product
-          </button>
-        </div>
+          </Button>
+        }
+      />
 
+      <div className="p-6">
         {/* Product list */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold w-8">
-                  
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
-                  RM Cost
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
-                  Labour
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
-                  Total Cost
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
-                  Selling Price
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">
-                  Margin %
-                </th>
-              </tr>
-            </thead>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold w-8">
+                      
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                      Product
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold">
+                      RM Cost
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold">
+                      Labour
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold">
+                      Total Cost
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold">
+                      Selling Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold">
+                      Margin %
+                    </th>
+                  </tr>
+                </thead>
             <tbody>
               {products.map((product) => {
                 const directCost =
@@ -394,9 +405,11 @@ export default function Products() {
                   </React.Fragment>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
         {/* Add Product Modal */}
         {showForm && (
@@ -553,19 +566,20 @@ export default function Products() {
                 </div>
 
                 <div className="flex gap-4 mt-6">
-                  <button
+                  <Button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+                    className="flex-1"
                   >
                     Create Product
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowForm(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -665,25 +679,26 @@ export default function Products() {
                 </div>
 
                 <div className="flex gap-4 mt-6">
-                  <button
+                  <Button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                    className="flex-1"
                   >
                     Add Component
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowBomForm(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   );
 }

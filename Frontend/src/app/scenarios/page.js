@@ -3,6 +3,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import AppLayout from "../../components/layout/AppLayout";
+import PageHeader from "../../components/layout/PageHeader";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -168,22 +170,27 @@ export default function ScenarioManager() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Scenario Manager</h1>
-            <p className="text-gray-600 mt-2">
-              Run what-if analysis to see impact of business decisions
-            </p>
-          </div>
+    <AppLayout>
+      <PageHeader
+        title="Scenario Manager"
+        description="Run what-if analysis to see impact of business decisions"
+        icon="🔄"
+        breadcrumbs={[
+          { name: "Dashboard", href: "/dashboard" },
+          { name: "Scenario Manager" }
+        ]}
+        actions={
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
           >
             + Create Scenario
           </button>
-        </div>
+        }
+      />
+
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto">
 
         {/* Scenario list */}
         <div className="bg-white rounded-lg shadow mb-8">
@@ -660,6 +667,6 @@ export default function ScenarioManager() {
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   );
 }

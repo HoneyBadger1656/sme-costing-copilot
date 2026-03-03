@@ -9,7 +9,7 @@ import os
 import logging
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data
 from app.middleware.security import add_security_middleware
 
 # Configure logging
@@ -62,6 +62,7 @@ app.include_router(financials.router, prefix="/api/financials", tags=["Financial
 app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistant"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
 app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
+app.include_router(financial_data.router, prefix="/api/financial-data", tags=["Financial Data"])
 
 # Serve static files (frontend) - check multiple possible locations
 frontend_paths = [

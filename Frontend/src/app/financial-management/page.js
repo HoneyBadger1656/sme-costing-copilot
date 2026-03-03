@@ -1,327 +1,251 @@
 // frontend/src/app/financial-management/page.js
-// Financial Management — Formula Library & Analysis
+// Financial Management page with formulas and analysis
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
+import AppLayout from "../../components/layout/AppLayout";
+import PageHeader from "../../components/layout/PageHeader";
+import Card, { CardHeader, CardTitle, CardContent } from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const financialFormulas = [
+  {
+    id: "current_ratio",
+    name: "Current Ratio",
+    description: "Current assets divided by current liabilities",
+    category: "Liquidity Ratios"
+  },
+  {
+    id: "quick_ratio",
+    name: "Quick Ratio",
+    description: "Quick assets divided by current liabilities",
+    category: "Liquidity Ratios"
+  },
+  {
+    id: "debt_to_equity",
+    name: "Debt-to-Equity Ratio",
+    description: "Total debt divided by total equity",
+    category: "Leverage Ratios"
+  },
+  {
+    id: "working_capital",
+    name: "Working Capital",
+    description: "Current assets minus current liabilities",
+    category: "Working Capital"
+  },
+  {
+    id: "debtor_days",
+    name: "Debtor Days",
+    description: "Average collection period for receivables",
+    category: "Working Capital"
+  },
+  {
+    id: "creditor_days",
+    name: "Creditor Days",
+    description: "Average payment period for payables",
+    category: "Working Capital"
+  },
+  {
+    id: "cash_conversion_cycle",
+    name: "Cash Conversion Cycle",
+    description: "Time to convert investments into cash",
+    category: "Working Capital"
+  },
+  {
+    id: "roe",
+    name: "Return on Equity (ROE)",
+    description: "Net income as percentage of shareholders' equity",
+    category: "Profitability Ratios"
+  },
+  {
+    id: "roce",
+    name: "Return on Capital Employed (ROCE)",
+    description: "Operating profit as percentage of capital employed",
+    category: "Profitability Ratios"
+  },
+  {
+    id: "gross_profit_margin",
+    name: "Gross Profit Margin",
+    description: "Gross profit as percentage of revenue",
+    category: "Profitability Ratios"
+  }
+];
+
+const categories = [...new Set(financialFormulas.map(f => f.category))];
 
 export default function FinancialManagementPage() {
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeTab, setActiveTab] = useState("formulas");
   const [selectedFormula, setSelectedFormula] = useState(null);
-  const [inputs, setInputs] = useState({});
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [calculating, setCalculating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Fetch all formulas on mount
-  useEffect(() => {
-    fetchFormulas();
-  }, []);
+  const filteredFormulas = selectedCategory === "All" 
+    ? financialFormulas 
+    : financialFormulas.filter(f => f.category === selectedCategory);
 
-  const fetchFormulas = async () => {
-    try {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const response = await fetch(`${API_BASE_URL}/api/financials/formulas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch formulas");
-      const data = await response.json();
-      setCategories(data);
-      if (data.length > 0) setSelectedCategory(data[0].category_id);
-    } catch (error) {
-      console.error("Error fetching formulas:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCalculate = async () => {
-    if (!selectedFormula) return;
-
-    setCalculating(true);
-    try {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const response = await fetch(
-        `${API_BASE_URL}/api/financials/formulas/${selectedFormula.id}/calculate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ inputs }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Calculation failed");
-      const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      console.error("Error calculating formula:", error);
-      alert("Error calculating formula: " + error.message);
-    } finally {
-      setCalculating(false);
-    }
-  };
-
-  const handleInputChange = (inputId, value) => {
-    setInputs((prev) => ({ ...prev, [inputId]: value }));
-  };
-
-  const resetForm = () => {
-    setInputs({});
-    setResult(null);
-  };
-
-  const filteredCategories = categories.map((category) => ({
-    ...category,
-    formulas: category.formulas.filter(
-      (formula) =>
-        formula.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        formula.description.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-  }));
-
-  const currentCategory = filteredCategories.find(
-    (cat) => cat.category_id === selectedCategory
-  );
+  const tabs = [
+    { id: "formulas", name: "Financial Formulas", icon: "📊" },
+    { id: "profitability", name: "Profitability", icon: "💹" },
+    { id: "receivables", name: "Receivables", icon: "📥" },
+    { id: "payables", name: "Payables", icon: "📤" },
+    { id: "cashflow", name: "Cash Flow", icon: "💰" }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <div
-        className={`${sidebarOpen ? "w-80" : "w-20"} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}
-      >
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2
-              className={`font-bold text-xl text-gray-800 ${
-                !sidebarOpen && "hidden"
-              }`}
-            >
-              Financial Formulas
-            </h2>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-          </div>
-          {sidebarOpen && (
-            <div className="mt-4">
-              <input
-                type="text"
-                placeholder="Search formulas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
-        </div>
+    <AppLayout>
+      <PageHeader
+        title="Financial Management"
+        description="Comprehensive financial analysis and ratio calculations"
+        icon="💰"
+        breadcrumbs={[
+          { name: "Dashboard", href: "/dashboard" },
+          { name: "Financial Management" }
+        ]}
+        actions={
+          <Link href="/financial-data">
+            <Button variant="outline">
+              📄 Upload Data
+            </Button>
+          </Link>
+        }
+      />
 
-        <div className="flex-1 overflow-y-auto">
-          {sidebarOpen && (
-            <div className="p-4 space-y-2">
-              {filteredCategories.map((category) => (
-                <div key={category.category_id}>
-                  <button
-                    onClick={() => setSelectedCategory(category.category_id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                      selectedCategory === category.category_id
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : "hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">{category.icon}</span>
-                      <div>
-                        <div className="font-medium">{category.category_name}</div>
-                        <div className="text-xs text-gray-500">
-                          {category.formulas.length} formulas
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
+      <div className="p-6">
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  {tab.name}
+                </button>
               ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Financial Management
-              </h1>
-              <p className="text-gray-600">
-                Professional financial formulas and analysis tools
-              </p>
-            </div>
-            <Link
-              href="/dashboard"
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Back to Dashboard
-            </Link>
+            </nav>
           </div>
         </div>
 
-        <div className="flex-1 flex">
-          {/* Formula List */}
-          <div className="w-96 bg-white border-r border-gray-200 overflow-y-auto">
-            {currentCategory && (
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-4 flex items-center">
-                  <span className="mr-2">{currentCategory.icon}</span>
-                  {currentCategory.category_name}
-                </h3>
-                <div className="space-y-2">
-                  {currentCategory.formulas.map((formula) => (
+        {/* Tab Content */}
+        {activeTab === "formulas" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Formula Library */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Formula Library</CardTitle>
+                  <div className="mt-4">
+                    <select 
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="All">All Categories</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-2">
+                  {filteredFormulas.map((formula) => (
                     <button
                       key={formula.id}
-                      onClick={() => {
-                        setSelectedFormula(formula);
-                        resetForm();
-                      }}
-                      className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      onClick={() => setSelectedFormula(formula)}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
                         selectedFormula?.id === formula.id
                           ? "border-blue-500 bg-blue-50"
                           : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       }`}
                     >
                       <div className="font-medium text-sm">{formula.name}</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {formula.formula}
-                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{formula.category}</div>
                     </button>
                   ))}
-                </div>
-              </div>
-            )}
-          </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Formula Calculator */}
-          <div className="flex-1 overflow-y-auto">
-            {selectedFormula ? (
-              <div className="p-8">
-                <div className="max-w-3xl mx-auto">
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h2 className="text-xl font-bold mb-2">
-                      {selectedFormula.name}
-                    </h2>
-                    <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                      <p className="text-sm text-gray-700 mb-2">
-                        {selectedFormula.description}
+            {/* Formula Calculator */}
+            <div className="lg:col-span-2">
+              {selectedFormula ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{selectedFormula.name}</CardTitle>
+                    <p className="text-gray-600 mt-2">{selectedFormula.description}</p>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-yellow-800 font-medium">Coming Soon</span>
+                      </div>
+                      <p className="text-yellow-700 mt-2 text-sm">
+                        Financial formula calculations will be available in the next update. Please upload your financial data first.
                       </p>
-                      <div className="font-mono text-sm bg-white p-2 rounded border">
-                        {selectedFormula.formula}
-                      </div>
                     </div>
 
-                    {/* Input Fields */}
-                    <div className="space-y-4 mb-6">
-                      <h3 className="font-semibold text-lg">Input Values</h3>
-                      {selectedFormula.inputs.map((input) => (
-                        <div key={input.id}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {input.label}
-                            {input.default && (
-                              <span className="text-gray-500 text-xs ml-1">
-                                (default: {input.default})
-                              </span>
-                            )}
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            placeholder={input.default?.toString() || ""}
-                            value={inputs[input.id] || ""}
-                            onChange={(e) =>
-                              handleInputChange(input.id, e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                    <Button disabled className="w-full mb-4">
+                      Calculate {selectedFormula.name}
+                    </Button>
 
-                    {/* Calculate Button */}
-                    <div className="flex space-x-4 mb-6">
-                      <button
-                        onClick={handleCalculate}
-                        disabled={calculating}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-                      >
-                        {calculating ? "Calculating..." : "Calculate"}
-                      </button>
-                      <button
-                        onClick={resetForm}
-                        className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                      >
-                        Reset
-                      </button>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Result</h4>
+                      <div className="text-2xl font-bold text-gray-400">--</div>
+                      <div className="text-sm text-gray-500 mt-1">Upload financial data to enable calculations</div>
                     </div>
-
-                    {/* Result */}
-                    {result && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                        <h3 className="font-semibold text-lg mb-3 text-green-800">
-                          Calculation Result
-                        </h3>
-                        <div className="text-2xl font-bold text-green-700 mb-3">
-                          {result.result.toFixed(4)} {result.unit}
-                        </div>
-                        <div className="text-sm text-gray-700 whitespace-pre-line">
-                          {result.explanation}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="text-6xl mb-4">📊</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    Select a Formula
-                  </h3>
-                  <p className="text-gray-500">
-                    Choose a formula from the list to start your financial analysis
-                  </p>
-                </div>
-              </div>
-            )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <div className="text-6xl mb-4">💰</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Financial Formula</h3>
+                    <p className="text-gray-500">
+                      Choose a financial ratio or formula from the library to get started.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Other tabs - placeholder content */}
+        {activeTab !== "formulas" && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-6xl mb-4">
+                {tabs.find(t => t.id === activeTab)?.icon}
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {tabs.find(t => t.id === activeTab)?.name} Analysis
+              </h3>
+              <p className="text-gray-500 mb-4">
+                This section will show detailed {activeTab} analysis and reports.
+              </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-yellow-800 text-sm">
+                  Feature coming soon. Backend APIs are being developed for comprehensive financial analysis.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </div>
+    </AppLayout>
   );
 }

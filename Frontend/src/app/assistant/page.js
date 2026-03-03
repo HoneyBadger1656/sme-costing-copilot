@@ -3,6 +3,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import AppLayout from "../../components/layout/AppLayout";
+import PageHeader from "../../components/layout/PageHeader";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -104,13 +106,21 @@ export default function AIAssistant() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar with suggestions */}
-      <div className="w-80 bg-white border-r p-6">
-        <h2 className="text-xl font-bold mb-4">AI Finance Assistant</h2>
-        <p className="text-sm text-gray-600 mb-6">
-          Ask questions about your finances, orders, customers, and cash flow.
-        </p>
+    <AppLayout>
+      <PageHeader
+        title="AI Financial Assistant"
+        description="Ask questions about your finances, orders, customers, and cash flow"
+        icon="🤖"
+        breadcrumbs={[
+          { name: "Dashboard", href: "/dashboard" },
+          { name: "AI Assistant" }
+        ]}
+      />
+
+      <div className="flex h-full">
+        {/* Sidebar with suggestions */}
+        <div className="w-80 bg-white border-r p-6">
+          <h2 className="text-lg font-semibold mb-4">Suggested Questions</h2>
 
         <div className="space-y-3">
           <div className="text-sm font-semibold text-gray-700 mb-2">Try asking:</div>
@@ -200,6 +210,6 @@ export default function AIAssistant() {
           </form>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }
