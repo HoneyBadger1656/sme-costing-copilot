@@ -3,6 +3,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, JSON, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from typing import Optional
 import enum
 import uuid
 
@@ -18,10 +19,31 @@ class User(Base):
     role = Column(String(50), default="ca")  # ca, sme_owner
     organization_id = Column(String(255), ForeignKey("organizations.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     
     organization = relationship("Organization", back_populates="users")
     clients = relationship("Client", back_populates="user")
+    
+    @staticmethod
+    def active(query):
+        """Filter to return only non-deleted (active) users"""
+        return query.filter(User.deleted_at.is_(None))
+    
+    @staticmethod
+    def with_deleted(query):
+        """Return all users including soft-deleted ones"""
+        return query
+    
+    def soft_delete(self, deleted_by_user_id: Optional[int] = None):
+        """Soft delete this user by setting deleted_at timestamp"""
+        self.deleted_at = datetime.utcnow()
+        if deleted_by_user_id:
+            self.updated_by = deleted_by_user_id
+        self.updated_at = datetime.utcnow()
 
 
 class Organization(Base):
@@ -308,3 +330,119 @@ class ChatMessage(Base):
     data_retrieved = Column(JSON)  # relevant data used to answer
     
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    client = relationship("Client")
+
+
+class Role(Base):
+    """Role-Based Access Control roles"""
+    __tablename__ = "roles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text)
+    permissions = Column(JSON, nullable=False)  # JSON structure with operation-level granularity
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
+    
+    def has_permission(self, permission: str) -> bool:
+        """
+        Check if this role has a specific permission.
+        
+        Args:
+            permission: Permission name to check (e.g., 'billing', 'user_management', 'reports')
+        
+        Returns:
+            bool: True if role has the permission, False otherwise
+        """
+        if not self.permissions:
+            return False
+        
+        # Check for 'all' permission (Owner/Admin roles)
+        if self.permissions.get('all', False):
+            # If checking for billing, verify it's explicitly allowed
+            if permission == 'billing':
+                return self.permissions.get('billing', False)
+            return True
+        
+        # Check for read_only mode (Viewer role)
+        if self.permissions.get('read_only', False):
+            # Viewer has read access but no write/delete/admin permissions
+            if permission in ['write', 'delete', 'billing', 'user_management']:
+                return False
+            return True
+        
+        # Check specific permission
+        return self.permissions.get(permission, False)
+
+
+class UserRole(Base):
+    """User role assignments within tenants"""
+    __tablename__ = "user_roles"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id = Column(String(255), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id], backref="user_roles")
+    role = relationship("Role", back_populates="user_roles")
+    tenant = relationship("Organization", foreign_keys=[tenant_id])
+    assigner = relationship("User", foreign_keys=[assigned_by])
+    
+    # Unique constraint on (user_id, role_id, tenant_id)
+    __table_args__ = (
+        {'extend_existing': True}
+    )
+    
+    @staticmethod
+    def get_user_roles(db, user_id: int, tenant_id: str):
+        """
+        Get all roles for a user within a specific tenant.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            tenant_id: Tenant/Organization ID
+        
+        Returns:
+            List of Role objects assigned to the user in the tenant
+        """
+        from sqlalchemy.orm import joinedload
+        
+        user_roles = db.query(UserRole).options(
+            joinedload(UserRole.role)
+        ).filter(
+            UserRole.user_id == user_id,
+            UserRole.tenant_id == tenant_id
+        ).all()
+        
+        return [ur.role for ur in user_roles]
+    
+    def has_permission(self, db, permission: str) -> bool:
+        """
+        Check if the user has a specific permission through this role assignment.
+        
+        Args:
+            db: Database session
+            permission: Permission name to check
+        
+        Returns:
+            bool: True if user has the permission, False otherwise
+        """
+        if not self.role:
+            # Load role if not already loaded
+            role = db.query(Role).filter(Role.id == self.role_id).first()
+            if not role:
+                return False
+            return role.has_permission(permission)
+        
+        return self.role.has_permission(permission)
