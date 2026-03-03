@@ -246,3 +246,68 @@ class FinancialService:
             return f"⚠ Cash flow is tight (₹{net_flow:,.0f} surplus). Monitor closely and delay non-essential payments if needed."
         else:
             return f"✓ Healthy cash surplus of ₹{net_flow:,.0f} expected. Good liquidity position."
+
+    @staticmethod
+    def calculate_current_ratio(current_assets: float, current_liabilities: float) -> float:
+        """Calculate current ratio"""
+        if current_liabilities == 0:
+            raise ValueError("Current liabilities cannot be zero")
+        return round(current_assets / current_liabilities, 2)
+    
+    @staticmethod
+    def calculate_quick_ratio(current_assets: float, inventory: float, current_liabilities: float) -> float:
+        """Calculate quick ratio (acid test ratio)"""
+        if current_liabilities == 0:
+            raise ValueError("Current liabilities cannot be zero")
+        quick_assets = current_assets - inventory
+        return round(quick_assets / current_liabilities, 2)
+    
+    @staticmethod
+    def calculate_debt_equity_ratio(total_debt: float, total_equity: float) -> float:
+        """Calculate debt to equity ratio"""
+        if total_equity == 0:
+            raise ValueError("Total equity cannot be zero")
+        return round(total_debt / total_equity, 2)
+    
+    @staticmethod
+    def calculate_gross_margin(revenue: float, cogs: float) -> float:
+        """Calculate gross margin percentage"""
+        if revenue == 0:
+            return 0.0
+        gross_profit = revenue - cogs
+        return round((gross_profit / revenue) * 100, 2)
+    
+    @staticmethod
+    def calculate_net_margin(revenue: float, net_income: float) -> float:
+        """Calculate net margin percentage"""
+        if revenue == 0:
+            return 0.0
+        return round((net_income / revenue) * 100, 2)
+    
+    @staticmethod
+    def calculate_roa(net_income: float, total_assets: float) -> float:
+        """Calculate return on assets percentage"""
+        if total_assets == 0:
+            raise ValueError("Total assets cannot be zero")
+        return round((net_income / total_assets) * 100, 2)
+    
+    @staticmethod
+    def calculate_roe(net_income: float, total_equity: float) -> float:
+        """Calculate return on equity percentage"""
+        if total_equity == 0:
+            raise ValueError("Total equity cannot be zero")
+        return round((net_income / total_equity) * 100, 2)
+    
+    @staticmethod
+    def calculate_working_capital(current_assets: float, current_liabilities: float) -> float:
+        """Calculate working capital"""
+        return round(current_assets - current_liabilities, 2)
+    
+    @staticmethod
+    def calculate_cash_conversion_cycle(
+        days_inventory_outstanding: int,
+        days_sales_outstanding: int,
+        days_payables_outstanding: int
+    ) -> int:
+        """Calculate cash conversion cycle in days"""
+        return days_inventory_outstanding + days_sales_outstanding - days_payables_outstanding

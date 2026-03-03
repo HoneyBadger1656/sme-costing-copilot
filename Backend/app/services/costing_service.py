@@ -175,3 +175,76 @@ class CostingService:
             "should_accept": should_accept,
             "suggested_changes": suggestions
         }
+
+    @staticmethod
+    def calculate_product_cost(product_data: Dict) -> Dict[str, float]:
+        """Calculate product cost from raw data (for testing)"""
+        if product_data.get("raw_material_cost", 0) < 0:
+            raise ValueError("Raw material cost cannot be negative")
+        if product_data.get("labour_cost_per_unit", 0) < 0:
+            raise ValueError("Labour cost cannot be negative")
+        
+        direct_cost = product_data["raw_material_cost"] + product_data["labour_cost_per_unit"]
+        overhead_cost = direct_cost * (product_data["overhead_percentage"] / 100)
+        total_cost = direct_cost + overhead_cost
+        
+        return {
+            "direct_cost": round(direct_cost, 2),
+            "overhead_cost": round(overhead_cost, 2),
+            "total_cost": round(total_cost, 2)
+        }
+    
+    @staticmethod
+    def calculate_selling_price(cost: float, margin_percentage: float, tax_rate: float) -> Dict[str, float]:
+        """Calculate selling price with margin and tax"""
+        price_before_tax = cost / (1 - margin_percentage / 100)
+        margin_amount = price_before_tax - cost
+        tax_amount = price_before_tax * (tax_rate / 100)
+        final_price = price_before_tax + tax_amount
+        
+        return {
+            "price_before_tax": round(price_before_tax, 2),
+            "margin_amount": round(margin_amount, 2),
+            "tax_amount": round(tax_amount, 2),
+            "final_price": round(final_price, 2)
+        }
+    
+    @staticmethod
+    def calculate_order_totals(order_items: List[Dict]) -> Dict[str, float]:
+        """Calculate order totals from items"""
+        total_quantity = sum(item["quantity"] for item in order_items)
+        total_cost = 0
+        total_selling_price = 0
+        
+        for item in order_items:
+            product = item["product"]
+            quantity = item["quantity"]
+            
+            cost_breakdown = CostingService.calculate_product_unit_cost(product)
+            total_cost += cost_breakdown["total_cost"] * quantity
+            total_selling_price += cost_breakdown["final_selling_price"] * quantity
+        
+        gross_margin = total_selling_price - total_cost
+        
+        return {
+            "total_quantity": total_quantity,
+            "total_cost": round(total_cost, 2),
+            "total_selling_price": round(total_selling_price, 2),
+            "gross_margin": round(gross_margin, 2)
+        }
+    
+    @staticmethod
+    def calculate_working_capital_impact(order_value: float, credit_days: int) -> Dict[str, float]:
+        """Calculate working capital impact of credit terms"""
+        blocked_capital = order_value
+        daily_cost = order_value / 365
+        # Assume 12% annual interest rate
+        interest_rate = 0.12
+        interest_cost = (order_value * interest_rate * credit_days) / 365
+        
+        return {
+            "blocked_capital": round(blocked_capital, 2),
+            "credit_days": credit_days,
+            "daily_cost": round(daily_cost, 2),
+            "interest_cost": round(interest_cost, 2)
+        }

@@ -1,55 +1,131 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pathlib import Path
 from uuid import UUID
 import json
 import os
 import logging
+from contextlib import asynccontextmanager
 
 from app.core.database import engine, Base
 from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data
 from app.middleware.security import add_security_middleware
+from app.exceptions import AppException
+from app.logging_config import setup_logging, get_logger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+setup_logging(log_level=os.getenv("LOG_LEVEL", "INFO"))
+logger = get_logger(__name__)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events"""
+    # Startup
+    Base.metadata.create_all(bind=engine)
+    logger.info("database_initialized", message="Database tables created successfully")
+    yield
+    # Shutdown
+    logger.info("application_shutdown", message="Application shutting down")
 
 app = FastAPI(
     title="SME Costing Copilot API",
     version="1.0.0",
     description="AI-powered costing and working capital decisions for Indian SMEs",
-    json_encoders={UUID: str}
+    json_encoders={UUID: str},
+    lifespan=lifespan
 )
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add security middleware
 add_security_middleware(app)
 
-# CORS middleware - restrict to specific origins in production
-origins = [
-    "http://localhost:3000",
-    "https://localhost:3000",
-    os.getenv("PUBLIC_URL", "http://localhost:8000"),
-    "https://sme-costing-copilot-production.up.railway.app",
-    "https://sme-costing-copilot-frontend.vercel.app",
-    "https://sme-costing-copilot-frontend-3wy5n5q29.vercel.app",
-    "https://*.vercel.app"  # Allow all Vercel preview deployments
-]
+# CORS middleware - restrict to specific origins
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+if ENVIRONMENT == "production":
+    # Production: strict CORS
+    allowed_origins = [
+        origin.strip() 
+        for origin in os.getenv("CORS_ORIGINS", "").split(",") 
+        if origin.strip()
+    ]
+    if not allowed_origins:
+        logger.warning("cors_not_configured", message="CORS_ORIGINS not set in production")
+        allowed_origins = ["https://sme-costing-copilot-frontend.vercel.app"]
+else:
+    # Development: allow localhost
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
+
+logger.info("cors_configured", origins=allowed_origins, environment=ENVIRONMENT)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all origins for debugging
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
-# Create tables on startup
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created successfully")
+# Global exception handlers
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    """Handle custom application exceptions"""
+    logger.error(
+        "application_error",
+        error=exc.message,
+        status_code=exc.status_code,
+        path=request.url.path,
+        method=request.method
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message, "type": exc.__class__.__name__}
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors"""
+    logger.warning(
+        "validation_error",
+        errors=exc.errors(),
+        path=request.url.path,
+        method=request.method
+    )
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "type": "ValidationError"}
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions"""
+    logger.exception(
+        "unexpected_error",
+        error=str(exc),
+        path=request.url.path,
+        method=request.method
+    )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error", "type": "InternalError"}
+    )
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -81,16 +157,18 @@ for frontend_path in frontend_paths:
         break
 
 @app.get("/")
-def root():
+@limiter.limit("10/minute")
+def root(request: Request):
     # Redirect to frontend if available, otherwise show API info
     for frontend_path in frontend_paths:
         if (frontend_path / "index.html").exists():
             return FileResponse(frontend_path / "index.html")
-    return {"message": "SME Costing Copilot API", "status": "running"}
+    return {"message": "SME Costing Copilot API", "status": "running", "version": "1.0.0"}
 
 @app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+@limiter.limit("30/minute")
+def health_check(request: Request):
+    return {"status": "healthy", "version": "1.0.0"}
 
 # Serve frontend for all other routes (SPA) - exclude API paths
 @app.get("/{path:path}", include_in_schema=False)
