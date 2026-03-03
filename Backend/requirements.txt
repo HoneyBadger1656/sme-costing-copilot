@@ -23,3 +23,5 @@ pytest==8.0.0
 pytest-cov==4.1.0
 pytest-asyncio==0.23.4
 httpx==0.26.0
+celery==5.3.6
+redis==5.0.1
