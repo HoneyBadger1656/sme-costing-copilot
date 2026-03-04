@@ -214,3 +214,79 @@ def generate_financial_report_task(self, client_id: int, report_type: str, perio
         }
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, name="async_generate_report")
+def async_generate_report_task(
+    self,
+    template_id: str,
+    format: str,
+    parameters: dict,
+    tenant_id: int,
+    user_id: int
+):
+    """
+    Background task to generate reports asynchronously.
+    
+    Args:
+        template_id: Report template ID
+        format: Output format (pdf, excel, csv)
+        parameters: Report parameters
+        tenant_id: Tenant ID
+        user_id: User ID requesting the report
+        
+    Returns:
+        Dict with report generation results
+    """
+    from app.services.report_service import ReportService
+    
+    db = SessionLocal()
+    
+    try:
+        logger.info(
+            "async_report_generation_started",
+            template_id=template_id,
+            format=format,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            task_id=self.request.id
+        )
+        
+        # Generate report
+        report_service = ReportService(db)
+        result = report_service.generate_report(
+            template_id=template_id,
+            format=format,
+            parameters=parameters,
+            tenant_id=tenant_id,
+            user_id=user_id
+        )
+        
+        logger.info(
+            "async_report_generation_completed",
+            template_id=template_id,
+            tenant_id=tenant_id,
+            task_id=result["task_id"]
+        )
+        
+        return {
+            "success": True,
+            "task_id": result["task_id"],
+            "file_name": result["file_name"],
+            "file_size": result["file_size"],
+            "message": "Report generated successfully"
+        }
+        
+    except Exception as e:
+        logger.exception(
+            "async_report_generation_failed",
+            template_id=template_id,
+            tenant_id=tenant_id,
+            error=str(e)
+        )
+        return {
+            "success": False,
+            "message": f"Report generation failed: {str(e)}"
+        }
+    finally:
+        db.close()

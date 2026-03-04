@@ -11,7 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data, roles, audit
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data, roles, audit, reports
 from app.middleware.security import add_security_middleware
 from app.exceptions import AppException
 from app.logging_config import setup_logging, get_logger
@@ -141,6 +141,7 @@ app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
 app.include_router(financial_data.router, prefix="/api/financial-data", tags=["Financial Data"])
 app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
+app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 
 # Serve static files (frontend) - check multiple possible locations
 frontend_paths = [
