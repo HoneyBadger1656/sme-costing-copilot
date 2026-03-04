@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
@@ -102,15 +102,24 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle Pydantic validation errors"""
+    # Convert errors to JSON-serializable format
+    errors = []
+    for error in exc.errors():
+        errors.append({
+            "loc": list(error.get("loc", [])),
+            "msg": str(error.get("msg", "")),
+            "type": str(error.get("type", ""))
+        })
+    
     logger.warning(
         "validation_error",
-        errors=exc.errors(),
+        errors=errors,
         path=request.url.path,
         method=request.method
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "type": "ValidationError"}
+        content={"detail": errors, "type": "ValidationError"}
     )
 
 @app.exception_handler(Exception)
@@ -176,9 +185,14 @@ def health_check(request: Request):
 # Serve frontend for all other routes (SPA) - exclude API paths
 @app.get("/{path:path}", include_in_schema=False)
 def serve_frontend(path: str):
-    # Don't interfere with API routes
-    if path.startswith("api/") or path.startswith("docs") or path.startswith("openapi") or path.startswith("health"):
-        return {"message": "API endpoint not found", "path": path}
+    # Don't interfere with API routes - be more specific about API path matching
+    if (path.startswith("api/") or 
+        path.startswith("docs") or 
+        path.startswith("openapi") or 
+        path.startswith("health") or
+        path == "api"):
+        # For API paths, raise 404 to let FastAPI handle it properly
+        raise HTTPException(status_code=404, detail="Not Found")
     
     # Try to serve static file first
     for frontend_path in frontend_paths:

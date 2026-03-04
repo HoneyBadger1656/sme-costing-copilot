@@ -99,9 +99,34 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
             hashed_password=hashed_password,
             full_name=user_data.name,
             organization_id=org.id,
-            role="admin"
+            role="admin"  # Keep for backward compatibility
         )
         db.add(user)
+        db.flush()
+        
+        # Create RBAC roles if they don't exist
+        from app.models.models import Role, UserRole
+        
+        # Check if Owner role exists, create if not
+        owner_role = db.query(Role).filter(Role.name == "Owner").first()
+        if not owner_role:
+            owner_role = Role(
+                name="Owner",
+                description="Full system access and organization management",
+                permissions=["*"]  # All permissions
+            )
+            db.add(owner_role)
+            db.flush()
+        
+        # Assign Owner role to the first user (organization creator)
+        user_role = UserRole(
+            user_id=user.id,
+            role_id=owner_role.id,
+            tenant_id=org.id,
+            assigned_by=user.id  # Self-assigned for first user
+        )
+        db.add(user_role)
+        
         db.commit()
         db.refresh(user)
         

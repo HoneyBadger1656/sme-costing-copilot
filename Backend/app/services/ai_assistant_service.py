@@ -68,7 +68,7 @@ class AIAssistantService:
             
             if client_type == "groq":
                 response = client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",  # Updated to current model
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1000
@@ -487,7 +487,7 @@ Keep your response practical and business-focused."""
             
             if client_type == "groq":
                 response = client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",  # Updated to current model
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1500  # More tokens for file analysis
