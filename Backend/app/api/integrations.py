@@ -210,11 +210,10 @@ def sync_zoho_invoices(
 
 # Excel/CSV import endpoints
 @router.post("/import/orders")
-@require_role(["Admin", "Owner"])
 async def import_orders(
     file: UploadFile = File(...),
     client_id: int = 1,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Import orders from Excel or CSV file (Admin/Owner only)"""
@@ -226,11 +225,10 @@ async def import_orders(
     return result
 
 @router.post("/import/products")
-@require_role(["Admin", "Owner"])
 async def import_products(
     file: UploadFile = File(...),
     client_id: int = 1,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Import products from Excel or CSV file (Admin/Owner only)"""
