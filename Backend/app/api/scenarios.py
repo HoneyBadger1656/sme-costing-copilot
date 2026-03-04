@@ -31,11 +31,10 @@ class ScenarioResponse(BaseModel):
     created_at: str
 
 @router.post("", response_model=ScenarioResponse)
-@require_role(["Accountant", "Admin", "Owner"])
 def create_scenario(
     request: CreateScenarioRequest,
     client_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Create a new what-if scenario (Accountant+ access)"""
@@ -80,10 +79,9 @@ def list_scenarios(
     ]
 
 @router.post("/compare")
-@require_role(["Accountant", "Admin", "Owner"])
 def compare_scenarios(
     scenario_ids: List[int],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Compare multiple scenarios side by side (Accountant+ access)"""
@@ -91,10 +89,9 @@ def compare_scenarios(
     return comparison
 
 @router.delete("/{scenario_id}")
-@require_role(["Accountant", "Admin", "Owner"])
 def delete_scenario(
     scenario_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Delete a scenario (Accountant+ access)"""
@@ -109,10 +106,9 @@ def delete_scenario(
     return {"message": "Scenario deleted successfully"}
 
 @router.post("/parse-quick-scenario")
-@require_role(["Accountant", "Admin", "Owner"])
 def parse_quick_scenario(
     request: QuickScenarioRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner"))
 ):
     """Parse natural language scenario input into structured changes (Accountant+ access)"""
     text = request.text.lower()
