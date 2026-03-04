@@ -107,14 +107,14 @@ Implementation order prioritizes database foundation first, then RBAC (security 
     - _Requirements: 24.1, 24.2_
 
 - [ ] 4. RBAC API endpoints
-  - [ ] 4.1 Create role management service
+  - [x] 4.1 Create role management service
     - Create Backend/app/services/rbac_service.py
     - Implement create_role(), get_roles(), get_role_by_id() methods
     - Implement assign_role(), revoke_role(), get_user_roles() methods
     - Add validation to prevent self-modification of Owner role
     - _Requirements: 4.1-4.8_
 
-  - [ ] 4.2 Create role management API endpoints
+  - [x] 4.2 Create role management API endpoints
     - Create Backend/app/api/roles.py
     - Implement POST /api/roles (create custom role) - Owner/Admin only
     - Implement GET /api/roles (list all roles in tenant)
@@ -124,7 +124,7 @@ Implementation order prioritizes database foundation first, then RBAC (security 
     - Apply require_role decorators to enforce access control
     - _Requirements: 4.1-4.8_
 
-  - [ ] 4.3 Write integration tests for role management API
+  - [x] 4.3 Write integration tests for role management API
     - Test role creation, listing, assignment, and revocation workflows
     - Test authorization enforcement on role endpoints
     - Test prevention of self-modification of Owner role

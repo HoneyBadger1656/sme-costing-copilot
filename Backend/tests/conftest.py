@@ -1,10 +1,13 @@
 """Pytest configuration and fixtures"""
 
 import pytest
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
-import os
+
+# Set DEBUG mode for tests to disable TrustedHostMiddleware
+os.environ["DEBUG"] = "true"
 
 from app.core.database import Base, get_db
 from app.main import app
