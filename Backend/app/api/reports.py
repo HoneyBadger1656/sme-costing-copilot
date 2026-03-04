@@ -62,11 +62,10 @@ class ReportTemplateResponse(BaseModel):
 
 @router.post("/generate", response_model=ReportGenerateResponse)
 @limiter.limit("10/minute")
-@require_role(["Accountant", "Admin", "Owner"])
 def generate_report(
     request: Request,
     report_request: ReportGenerateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -125,10 +124,9 @@ def generate_report(
 
 
 @router.get("/status/{task_id}", response_model=ReportStatusResponse)
-@require_role(["Accountant", "Admin", "Owner"])
 def get_report_status(
     task_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -172,10 +170,9 @@ def get_report_status(
 
 
 @router.get("/download/{task_id}")
-@require_role(["Accountant", "Admin", "Owner"])
 def download_report(
     task_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -234,9 +231,8 @@ def download_report(
 
 
 @router.get("/templates", response_model=List[ReportTemplateResponse])
-@require_role(["Accountant", "Admin", "Owner"])
 def list_report_templates(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner"))
 ):
     """
     List all available report templates.
@@ -256,10 +252,9 @@ def list_report_templates(
 
 
 @router.get("/templates/{template_id}", response_model=ReportTemplateResponse)
-@require_role(["Accountant", "Admin", "Owner"])
 def get_report_template(
     template_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner"))
 ):
     """
     Get details of a specific report template.
