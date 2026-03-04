@@ -16,11 +16,10 @@ from app.utils.rbac import require_role
 router = APIRouter(tags=["financials"])
 
 @router.get("/profitability")
-@require_role(["Accountant", "Admin", "Owner"])
 def get_profitability(
     client_id: int,
     days: int = Query(30, description="Number of days to analyze"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Get profitability summary (Accountant+ access)"""
@@ -34,10 +33,9 @@ def get_profitability(
     return summary
 
 @router.get("/receivables")
-@require_role(["Accountant", "Admin", "Owner"])
 def get_receivables(
     client_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Get receivables analysis (Accountant+ access)"""
@@ -45,10 +43,9 @@ def get_receivables(
     return summary
 
 @router.get("/payables")
-@require_role(["Accountant", "Admin", "Owner"])
 def get_payables(
     client_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Get payables analysis (Accountant+ access)"""
@@ -56,11 +53,10 @@ def get_payables(
     return summary
 
 @router.get("/cash-flow-forecast")
-@require_role(["Accountant", "Admin", "Owner"])
 def get_cash_flow_forecast(
     client_id: int,
     days: int = Query(30, description="Forecast period in days"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Get cash flow forecast (Accountant+ access)"""
@@ -79,11 +75,10 @@ def list_financial_formulas():
 
 
 @router.post("/formulas/{formula_id}/calculate")
-@require_role(["Accountant", "Admin", "Owner"])
 def calculate_financial_formula(
     formula_id: str,
     request: FormulaCalculateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
 ):
     """Calculate a specific financial formula given input values (Accountant+ access)"""
     try:

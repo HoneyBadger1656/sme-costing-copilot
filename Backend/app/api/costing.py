@@ -80,10 +80,9 @@ class BOMItemResponse(BaseModel):
 # ── Existing endpoints ────────────────────────────────────────────────
 
 @router.post("/calculate-product-cost", response_model=ProductCostingResponse)
-@require_role(["Accountant", "Admin", "Owner"])
 def calculate_product_cost(
     request: ProductCostingRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner"))
 ):
     """Quick cost calculation without saving to database (Accountant+ access)"""
     temp_product = Product(
@@ -107,10 +106,9 @@ def calculate_product_cost(
 
 
 @router.post("/evaluate-order", response_model=EvaluateOrderResponse)
-@require_role(["Accountant", "Admin", "Owner"])
 def evaluate_order_quick(
     request: EvaluateOrderRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Quick order evaluation without creating order in DB (Accountant+ access)"""
@@ -160,10 +158,9 @@ def evaluate_order_quick(
 
 
 @router.post("/orders/{order_id}/recalculate")
-@require_role(["Accountant", "Admin", "Owner"])
 def recalculate_order(
     order_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Recalculate an existing order's costs and evaluation (Accountant+ access)"""
@@ -196,11 +193,10 @@ def list_formulas():
 
 
 @router.post("/formulas/{formula_id}/calculate")
-@require_role(["Accountant", "Admin", "Owner"])
 def run_formula(
     formula_id: str,
     request: FormulaCalculateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
 ):
     """Calculate a specific formula given input values (Accountant+ access)"""
     try:
@@ -240,11 +236,10 @@ def list_bom_items(
 
 
 @router.post("/products/{product_id}/bom")
-@require_role(["Accountant", "Admin", "Owner"])
 def add_bom_item(
     product_id: int,
     request: BOMItemCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Add a BOM component to a product (Accountant+ access)"""
@@ -277,10 +272,9 @@ def add_bom_item(
 
 
 @router.delete("/bom/{bom_id}")
-@require_role(["Accountant", "Admin", "Owner"])
 def delete_bom_item(
     bom_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Accountant", "Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Delete a BOM component (Accountant+ access)"""

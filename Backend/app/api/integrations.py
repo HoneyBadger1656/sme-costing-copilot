@@ -30,22 +30,20 @@ class TallyConfigRequest(BaseModel):
     company_name: str
 
 @router.post("/tally/test-connection")
-@require_role(["Admin", "Owner"])
 def test_tally_connection(
     request: TallyConfigRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role("Admin", "Owner"))
 ):
     """Test connection to Tally (Admin/Owner only)"""
     result = TallyIntegration.test_connection(request.tally_url, request.tally_port)
     return result
 
 @router.post("/tally/sync-ledgers")
-@require_role(["Admin", "Owner"])
 def sync_tally_ledgers(
     request: TallyConfigRequest,
     client_id: int,
     background: bool = True,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -111,8 +109,7 @@ def sync_tally_ledgers(
 
 # Zoho endpoints
 @router.get("/zoho/auth-url")
-@require_role(["Admin", "Owner"])
-def get_zoho_auth_url(current_user: User = Depends(get_current_user)):
+def get_zoho_auth_url(current_user: User = Depends(require_role("Admin", "Owner"))):
     """Get Zoho OAuth authorization URL (Admin/Owner only)"""
     # These should come from environment variables
     import os
@@ -127,10 +124,9 @@ class ZohoTokenRequest(BaseModel):
     client_id: int
 
 @router.post("/zoho/exchange-token")
-@require_role(["Admin", "Owner"])
 def exchange_zoho_token(
     request: ZohoTokenRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """Exchange authorization code for tokens (Admin/Owner only)"""
@@ -157,12 +153,11 @@ def exchange_zoho_token(
     return result
 
 @router.post("/zoho/sync-invoices")
-@require_role(["Admin", "Owner"])
 def sync_zoho_invoices(
     client_id: int,
     organization_id: str,
     background: bool = True,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """

@@ -29,7 +29,6 @@ class AuditLogFilters(BaseModel):
 
 
 @router.get("/audit-logs")
-@require_role(["Admin", "Owner"])
 def get_audit_logs(
     table_name: Optional[str] = Query(None, description="Filter by table name"),
     action: Optional[str] = Query(None, description="Filter by action (CREATE, UPDATE, DELETE)"),
@@ -38,7 +37,7 @@ def get_audit_logs(
     end_date: Optional[datetime] = Query(None, description="Filter by end date (ISO 8601)"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -81,11 +80,10 @@ def get_audit_logs(
 
 
 @router.get("/audit-logs/record/{table_name}/{record_id}")
-@require_role(["Admin", "Owner"])
 def get_record_history(
     table_name: str,
     record_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -132,7 +130,6 @@ def get_record_history(
 
 
 @router.get("/audit-logs/export")
-@require_role(["Admin", "Owner"])
 def export_audit_logs(
     format: str = Query("csv", description="Export format (csv)"),
     table_name: Optional[str] = Query(None, description="Filter by table name"),
@@ -140,7 +137,7 @@ def export_audit_logs(
     user_id: Optional[int] = Query(None, description="Filter by user ID"),
     start_date: Optional[datetime] = Query(None, description="Filter by start date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
@@ -199,11 +196,10 @@ def export_audit_logs(
 
 
 @router.get("/audit-logs/statistics")
-@require_role(["Admin", "Owner"])
 def get_audit_statistics(
     start_date: Optional[datetime] = Query(None, description="Filter by start date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("Admin", "Owner")),
     db: Session = Depends(get_db)
 ):
     """
