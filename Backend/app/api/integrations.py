@@ -11,6 +11,7 @@ from app.api.auth import get_current_user
 from app.models.models import User, Client
 from app.services.integration_service import TallyIntegration, ZohoIntegration, ExcelCSVImport
 from app.logging_config import get_logger
+from app.utils.rbac import require_role
 
 # Import Celery tasks
 try:
@@ -29,15 +30,17 @@ class TallyConfigRequest(BaseModel):
     company_name: str
 
 @router.post("/tally/test-connection")
+@require_role(["Admin", "Owner"])
 def test_tally_connection(
     request: TallyConfigRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Test connection to Tally"""
+    """Test connection to Tally (Admin/Owner only)"""
     result = TallyIntegration.test_connection(request.tally_url, request.tally_port)
     return result
 
 @router.post("/tally/sync-ledgers")
+@require_role(["Admin", "Owner"])
 def sync_tally_ledgers(
     request: TallyConfigRequest,
     client_id: int,
@@ -46,7 +49,7 @@ def sync_tally_ledgers(
     db: Session = Depends(get_db)
 ):
     """
-    Sync ledgers from Tally to database
+    Sync ledgers from Tally to database (Admin/Owner only)
     
     Args:
         background: If True, run as background task (requires Celery)
@@ -108,8 +111,9 @@ def sync_tally_ledgers(
 
 # Zoho endpoints
 @router.get("/zoho/auth-url")
+@require_role(["Admin", "Owner"])
 def get_zoho_auth_url(current_user: User = Depends(get_current_user)):
-    """Get Zoho OAuth authorization URL"""
+    """Get Zoho OAuth authorization URL (Admin/Owner only)"""
     # These should come from environment variables
     import os
     client_id = os.getenv("ZOHO_CLIENT_ID")
@@ -123,12 +127,13 @@ class ZohoTokenRequest(BaseModel):
     client_id: int
 
 @router.post("/zoho/exchange-token")
+@require_role(["Admin", "Owner"])
 def exchange_zoho_token(
     request: ZohoTokenRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Exchange authorization code for tokens"""
+    """Exchange authorization code for tokens (Admin/Owner only)"""
     import os
     
     result = ZohoIntegration.exchange_code_for_tokens(
@@ -152,6 +157,7 @@ def exchange_zoho_token(
     return result
 
 @router.post("/zoho/sync-invoices")
+@require_role(["Admin", "Owner"])
 def sync_zoho_invoices(
     client_id: int,
     organization_id: str,
@@ -160,7 +166,7 @@ def sync_zoho_invoices(
     db: Session = Depends(get_db)
 ):
     """
-    Sync invoices from Zoho Books
+    Sync invoices from Zoho Books (Admin/Owner only)
     
     Args:
         background: If True, run as background task (requires Celery)
@@ -209,13 +215,14 @@ def sync_zoho_invoices(
 
 # Excel/CSV import endpoints
 @router.post("/import/orders")
+@require_role(["Admin", "Owner"])
 async def import_orders(
     file: UploadFile = File(...),
     client_id: int = 1,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Import orders from Excel or CSV file"""
+    """Import orders from Excel or CSV file (Admin/Owner only)"""
     
     content = await file.read()
     result = ExcelCSVImport.import_orders_from_file(
@@ -224,13 +231,14 @@ async def import_orders(
     return result
 
 @router.post("/import/products")
+@require_role(["Admin", "Owner"])
 async def import_products(
     file: UploadFile = File(...),
     client_id: int = 1,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Import products from Excel or CSV file"""
+    """Import products from Excel or CSV file (Admin/Owner only)"""
     
     content = await file.read()
     result = ExcelCSVImport.import_products_from_file(

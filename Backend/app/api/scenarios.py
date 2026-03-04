@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.models import Scenario, User
 from app.services.scenario_service import ScenarioService
+from app.utils.rbac import require_role
 
 router = APIRouter(tags=["scenarios"])
 
@@ -30,13 +31,14 @@ class ScenarioResponse(BaseModel):
     created_at: str
 
 @router.post("", response_model=ScenarioResponse)
+@require_role(["Accountant", "Admin", "Owner"])
 def create_scenario(
     request: CreateScenarioRequest,
     client_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new what-if scenario"""
+    """Create a new what-if scenario (Accountant+ access)"""
     scenario = ScenarioService.create_scenario(
         db=db,
         client_id=client_id,
@@ -78,22 +80,24 @@ def list_scenarios(
     ]
 
 @router.post("/compare")
+@require_role(["Accountant", "Admin", "Owner"])
 def compare_scenarios(
     scenario_ids: List[int],
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Compare multiple scenarios side by side"""
+    """Compare multiple scenarios side by side (Accountant+ access)"""
     comparison = ScenarioService.compare_scenarios(db, scenario_ids)
     return comparison
 
 @router.delete("/{scenario_id}")
+@require_role(["Accountant", "Admin", "Owner"])
 def delete_scenario(
     scenario_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a scenario"""
+    """Delete a scenario (Accountant+ access)"""
     scenario = db.query(Scenario).filter(Scenario.id == scenario_id).first()
     
     if not scenario:
@@ -105,11 +109,12 @@ def delete_scenario(
     return {"message": "Scenario deleted successfully"}
 
 @router.post("/parse-quick-scenario")
+@require_role(["Accountant", "Admin", "Owner"])
 def parse_quick_scenario(
     request: QuickScenarioRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Parse natural language scenario input into structured changes"""
+    """Parse natural language scenario input into structured changes (Accountant+ access)"""
     text = request.text.lower()
     changes = {}
     name = request.text[:50] + "..." if len(request.text) > 50 else request.text

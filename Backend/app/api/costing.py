@@ -10,6 +10,7 @@ from app.api.auth import get_current_user
 from app.models.models import Product, Order, OrderItem, BOMItem, User
 from app.services.costing_service import CostingService
 from app.services.costing_formulas import get_all_formulas, calculate_formula
+from app.utils.rbac import require_role
 
 router = APIRouter(tags=["costing"])
 
@@ -79,11 +80,12 @@ class BOMItemResponse(BaseModel):
 # ── Existing endpoints ────────────────────────────────────────────────
 
 @router.post("/calculate-product-cost", response_model=ProductCostingResponse)
+@require_role(["Accountant", "Admin", "Owner"])
 def calculate_product_cost(
     request: ProductCostingRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Quick cost calculation without saving to database"""
+    """Quick cost calculation without saving to database (Accountant+ access)"""
     temp_product = Product(
         raw_material_cost=request.raw_material_cost,
         labour_cost_per_unit=request.labour_cost_per_unit,
@@ -105,12 +107,13 @@ def calculate_product_cost(
 
 
 @router.post("/evaluate-order", response_model=EvaluateOrderResponse)
+@require_role(["Accountant", "Admin", "Owner"])
 def evaluate_order_quick(
     request: EvaluateOrderRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Quick order evaluation without creating order in DB"""
+    """Quick order evaluation without creating order in DB (Accountant+ access)"""
     total_cost = request.cost_price * request.quantity
     total_revenue = request.selling_price * request.quantity
     gross_margin = total_revenue - total_cost
@@ -157,12 +160,13 @@ def evaluate_order_quick(
 
 
 @router.post("/orders/{order_id}/recalculate")
+@require_role(["Accountant", "Admin", "Owner"])
 def recalculate_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Recalculate an existing order's costs and evaluation"""
+    """Recalculate an existing order's costs and evaluation (Accountant+ access)"""
     order = db.query(Order).filter(Order.id == order_id).first()
     
     if not order:
@@ -192,12 +196,13 @@ def list_formulas():
 
 
 @router.post("/formulas/{formula_id}/calculate")
+@require_role(["Accountant", "Admin", "Owner"])
 def run_formula(
     formula_id: str,
     request: FormulaCalculateRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Calculate a specific formula given input values."""
+    """Calculate a specific formula given input values (Accountant+ access)"""
     try:
         result = calculate_formula(formula_id, request.inputs)
         return result
@@ -235,13 +240,14 @@ def list_bom_items(
 
 
 @router.post("/products/{product_id}/bom")
+@require_role(["Accountant", "Admin", "Owner"])
 def add_bom_item(
     product_id: int,
     request: BOMItemCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Add a BOM component to a product."""
+    """Add a BOM component to a product (Accountant+ access)"""
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -271,12 +277,13 @@ def add_bom_item(
 
 
 @router.delete("/bom/{bom_id}")
+@require_role(["Accountant", "Admin", "Owner"])
 def delete_bom_item(
     bom_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a BOM component."""
+    """Delete a BOM component (Accountant+ access)"""
     item = db.query(BOMItem).filter(BOMItem.id == bom_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="BOM item not found")
