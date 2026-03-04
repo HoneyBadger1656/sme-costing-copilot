@@ -446,3 +446,249 @@ class UserRole(Base):
             return role.has_permission(permission)
         
         return self.role.has_permission(permission)
+
+
+    class AuditLog(Base):
+        """Audit trail for all CUD operations"""
+        __tablename__ = "audit_logs"
+
+        id = Column(Integer, primary_key=True, index=True)
+        tenant_id = Column(String(255), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+        user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+        action = Column(String(20), nullable=False)  # CREATE, UPDATE, DELETE
+        table_name = Column(String(100), nullable=False, index=True)
+        record_id = Column(Integer, nullable=False)
+        old_values = Column(JSON, nullable=True)  # Previous state for UPDATE/DELETE
+        new_values = Column(JSON, nullable=True)  # New state for CREATE/UPDATE
+        ip_address = Column(String(45), nullable=True)
+        user_agent = Column(String(500), nullable=True)
+        created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+        # Relationships
+        tenant = relationship("Organization", foreign_keys=[tenant_id])
+        user = relationship("User", foreign_keys=[user_id])
+
+        # Composite indexes defined in migration
+        __table_args__ = (
+            {'extend_existing': True}
+        )
+
+        @staticmethod
+        def get_record_history(db, table_name: str, record_id: int, tenant_id: str):
+            """
+            Get audit history for a specific record.
+
+            Args:
+                db: Database session
+                table_name: Name of the table
+                record_id: ID of the record
+                tenant_id: Tenant/Organization ID
+
+            Returns:
+                List of AuditLog entries for the record, ordered by created_at desc
+            """
+            return db.query(AuditLog).filter(
+                AuditLog.table_name == table_name,
+                AuditLog.record_id == record_id,
+                AuditLog.tenant_id == tenant_id
+            ).order_by(AuditLog.created_at.desc()).all()
+
+        @staticmethod
+        def get_tenant_audit_trail(db, tenant_id: str, limit: int = 100, offset: int = 0):
+            """
+            Get audit trail for a tenant with pagination.
+
+            Args:
+                db: Database session
+                tenant_id: Tenant/Organization ID
+                limit: Maximum number of records to return
+                offset: Number of records to skip
+
+            Returns:
+                List of AuditLog entries for the tenant, ordered by created_at desc
+            """
+            return db.query(AuditLog).filter(
+                AuditLog.tenant_id == tenant_id
+            ).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset).all()
+
+
+
+
+    class AuditLog(Base):
+        """Audit trail for all CUD operations"""
+        __tablename__ = "audit_logs"
+
+        id = Column(Integer, primary_key=True, index=True)
+        tenant_id = Column(String(255), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+        user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+        action = Column(String(20), nullable=False)  # CREATE, UPDATE, DELETE
+        table_name = Column(String(100), nullable=False, index=True)
+        record_id = Column(Integer, nullable=False)
+        old_values = Column(JSON, nullable=True)  # Previous state for UPDATE/DELETE
+        new_values = Column(JSON, nullable=True)  # New state for CREATE/UPDATE
+        ip_address = Column(String(45), nullable=True)
+        user_agent = Column(String(500), nullable=True)
+        created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+        # Relationships
+        tenant = relationship("Organization", foreign_keys=[tenant_id])
+        user = relationship("User", foreign_keys=[user_id])
+
+        # Composite indexes defined in migration
+        __table_args__ = (
+            {'extend_existing': True}
+        )
+
+        @staticmethod
+        def get_record_history(db, table_name: str, record_id: int, tenant_id: str):
+            """
+            Get audit history for a specific record.
+
+            Args:
+                db: Database session
+                table_name: Name of the table
+                record_id: ID of the record
+                tenant_id: Tenant/Organization ID
+
+            Returns:
+                List of AuditLog entries for the record, ordered by created_at desc
+            """
+            return db.query(AuditLog).filter(
+                AuditLog.table_name == table_name,
+                AuditLog.record_id == record_id,
+                AuditLog.tenant_id == tenant_id
+            ).order_by(AuditLog.created_at.desc()).all()
+
+        @staticmethod
+        def get_tenant_audit_trail(db, tenant_id: str, limit: int = 100, offset: int = 0):
+            """
+            Get audit trail for a tenant with pagination.
+
+            Args:
+                db: Database session
+                tenant_id: Tenant/Organization ID
+                limit: Maximum number of records to return
+                offset: Number of records to skip
+
+            Returns:
+                List of AuditLog entries for the tenant, ordered by created_at desc
+            """
+            return db.query(AuditLog).filter(
+                AuditLog.tenant_id == tenant_id
+            ).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset).all()
+
+
+
+
+
+class AuditLog(Base):
+    """Audit trail for all CUD operations"""
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String(255), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(String(20), nullable=False)  # CREATE, UPDATE, DELETE
+    table_name = Column(String(100), nullable=False, index=True)
+    record_id = Column(Integer, nullable=False)
+    old_values = Column(JSON, nullable=True)  # Previous state for UPDATE/DELETE
+    new_values = Column(JSON, nullable=True)  # New state for CREATE/UPDATE
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    tenant = relationship("Organization", foreign_keys=[tenant_id])
+    user = relationship("User", foreign_keys=[user_id])
+    
+    # Composite indexes defined in migration
+    __table_args__ = (
+        {'extend_existing': True}
+    )
+    
+    @staticmethod
+    def get_record_history(db, table_name: str, record_id: int, tenant_id: str):
+        """
+        Get audit history for a specific record.
+        
+        Args:
+            db: Database session
+            table_name: Name of the table
+            record_id: ID of the record
+            tenant_id: Tenant/Organization ID
+        
+        Returns:
+            List of AuditLog entries for the record, ordered by created_at desc
+        """
+        return db.query(AuditLog).filter(
+            AuditLog.table_name == table_name,
+            AuditLog.record_id == record_id,
+            AuditLog.tenant_id == tenant_id
+        ).order_by(AuditLog.created_at.desc()).all()
+    
+    @staticmethod
+    def get_tenant_audit_trail(db, tenant_id: str, limit: int = 100, offset: int = 0):
+        """
+        Get audit trail for a tenant with pagination.
+        
+        Args:
+            db: Database session
+            tenant_id: Tenant/Organization ID
+            limit: Maximum number of records to return
+            offset: Number of records to skip
+        
+        Returns:
+            List of AuditLog entries for the tenant, ordered by created_at desc
+        """
+        return db.query(AuditLog).filter(
+            AuditLog.tenant_id == tenant_id
+        ).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset).all()
+
+
+class NotificationPreference(Base):
+    """User notification preferences"""
+    __tablename__ = "notification_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    notification_type = Column(String(100), nullable=False)  # order_evaluation_complete, scenario_analysis_ready, etc.
+    enabled = Column(Boolean, nullable=False, default=True)
+    delivery_method = Column(String(50), nullable=False, default="email")  # email, sms, push
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    
+    # Unique constraint on (user_id, notification_type) defined in migration
+    __table_args__ = (
+        {'extend_existing': True}
+    )
+
+
+class ReportSchedule(Base):
+    """Scheduled report generation configuration"""
+    __tablename__ = "report_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String(255), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    template_id = Column(String(100), nullable=False)  # financial_statement, costing_analysis, etc.
+    format = Column(String(20), nullable=False)  # pdf, excel, csv
+    parameters = Column(JSON, nullable=True)  # Report-specific parameters
+    frequency = Column(String(50), nullable=False)  # daily, weekly, monthly, custom
+    cron_expression = Column(String(100), nullable=True)  # For custom schedules
+    recipients = Column(JSON, nullable=False)  # List of email addresses
+    next_run_at = Column(DateTime, nullable=False)
+    last_run_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tenant = relationship("Organization", foreign_keys=[tenant_id])
+    user = relationship("User", foreign_keys=[user_id])
+    
+    __table_args__ = (
+        {'extend_existing': True}
+    )
