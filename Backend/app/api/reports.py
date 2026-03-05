@@ -80,7 +80,7 @@ def generate_report(
             template_id=report_request.template_id,
             format=report_request.format,
             user_id=current_user.id,
-            tenant_id=current_user.tenant_id
+            tenant_id=current_user.organization_id
         )
         
         # Generate report synchronously
@@ -89,7 +89,7 @@ def generate_report(
             template_id=report_request.template_id,
             format=report_request.format,
             parameters=report_request.parameters,
-            tenant_id=current_user.tenant_id,
+            tenant_id=current_user.organization_id,
             user_id=current_user.id
         )
         
