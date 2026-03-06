@@ -290,3 +290,164 @@ def async_generate_report_task(
         }
     finally:
         db.close()
+
+
+
+@celery_app.task(bind=True, name="execute_due_scheduled_reports")
+def execute_due_scheduled_reports_task(self):
+    """
+    Periodic task to execute scheduled reports that are due.
+    Runs every minute to check for reports that need to be executed.
+    
+    Returns:
+        Dict with execution results
+    """
+    from app.services.scheduled_report_service import ScheduledReportService
+    from app.models.models import ReportSchedule
+    from datetime import datetime
+    
+    db = SessionLocal()
+    
+    try:
+        logger.info("checking_due_scheduled_reports", task_id=self.request.id)
+        
+        # Query for schedules that are due
+        now = datetime.utcnow()
+        due_schedules = db.query(ReportSchedule).filter(
+            ReportSchedule.is_active == True,
+            ReportSchedule.next_run_at <= now
+        ).all()
+        
+        if not due_schedules:
+            logger.debug("no_due_scheduled_reports")
+            return {
+                "success": True,
+                "message": "No due scheduled reports",
+                "executed": 0
+            }
+        
+        logger.info("found_due_scheduled_reports", count=len(due_schedules))
+        
+        executed_count = 0
+        failed_count = 0
+        
+        # Execute each due schedule
+        for schedule in due_schedules:
+            try:
+                scheduled_report_service = ScheduledReportService(db)
+                result = scheduled_report_service.execute_scheduled_report(schedule.id)
+                
+                # Send report via email (placeholder for now)
+                # TODO: Implement email sending when email service is ready (tasks 17.2-17.5)
+                send_scheduled_report_email_task.delay(
+                    schedule_id=schedule.id,
+                    report_result=result,
+                    recipients=schedule.recipients
+                )
+                
+                executed_count += 1
+                
+                logger.info(
+                    "scheduled_report_executed_successfully",
+                    schedule_id=schedule.id,
+                    template_id=schedule.template_id,
+                    tenant_id=schedule.tenant_id
+                )
+                
+            except Exception as e:
+                failed_count += 1
+                logger.error(
+                    "scheduled_report_execution_failed",
+                    schedule_id=schedule.id,
+                    error=str(e),
+                    exc_info=True
+                )
+                # Continue with next schedule even if one fails
+                continue
+        
+        logger.info(
+            "scheduled_reports_execution_completed",
+            executed=executed_count,
+            failed=failed_count
+        )
+        
+        return {
+            "success": True,
+            "message": f"Executed {executed_count} scheduled reports, {failed_count} failed",
+            "executed": executed_count,
+            "failed": failed_count
+        }
+        
+    except Exception as e:
+        logger.exception("scheduled_reports_check_failed", error=str(e))
+        return {
+            "success": False,
+            "message": f"Scheduled reports check failed: {str(e)}"
+        }
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="send_scheduled_report_email")
+def send_scheduled_report_email_task(
+    self,
+    schedule_id: int,
+    report_result: dict,
+    recipients: list
+):
+    """
+    Background task to send scheduled report via email.
+    
+    This is a placeholder implementation until the email service is fully implemented
+    (tasks 17.2-17.5). Currently logs the email sending action.
+    
+    Args:
+        schedule_id: Schedule ID
+        report_result: Report generation result dict
+        recipients: List of recipient email addresses
+        
+    Returns:
+        Dict with email sending results
+    """
+    try:
+        logger.info(
+            "sending_scheduled_report_email",
+            schedule_id=schedule_id,
+            recipients=recipients,
+            task_id=self.request.id
+        )
+        
+        # TODO: Implement actual email sending when email service is ready
+        # This will be implemented in tasks 17.2-17.5
+        # For now, we just log the action
+        
+        # Placeholder logic:
+        # 1. Get report file path from report_result
+        # 2. Prepare email with report attachment
+        # 3. Send email to all recipients
+        # 4. Handle failures and retries
+        
+        logger.info(
+            "scheduled_report_email_placeholder",
+            schedule_id=schedule_id,
+            recipients=recipients,
+            message="Email service not yet implemented. Report generated successfully but not sent."
+        )
+        
+        return {
+            "success": True,
+            "message": "Email sending placeholder - email service not yet implemented",
+            "recipients": recipients,
+            "schedule_id": schedule_id
+        }
+        
+    except Exception as e:
+        logger.exception(
+            "scheduled_report_email_failed",
+            schedule_id=schedule_id,
+            error=str(e)
+        )
+        return {
+            "success": False,
+            "message": f"Email sending failed: {str(e)}"
+        }

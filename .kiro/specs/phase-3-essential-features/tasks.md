@@ -325,14 +325,14 @@ Implementation order prioritizes database foundation first, then RBAC (security 
     - Validate cron expressions and frequency values
     - _Requirements: 12.1-12.7_
 
-  - [~] 14.3 Create Celery beat tasks for scheduled reports
+  - [x] 14.3 Create Celery beat tasks for scheduled reports
     - Add periodic task configuration to Backend/app/celery_app.py
     - Implement scheduled report execution task
     - Update next_run_at after each execution
     - Send generated reports via email
     - _Requirements: 12.5, 12.6_
 
-  - [~] 14.4 Create scheduled report API endpoints
+  - [x] 14.4 Create scheduled report API endpoints
     - Add endpoints to Backend/app/api/reports.py
     - Implement POST /api/reports/schedules (create schedule)
     - Implement GET /api/reports/schedules (list schedules)

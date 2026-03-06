@@ -2,6 +2,7 @@
 
 import os
 from celery import Celery
+from celery.schedules import crontab
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -33,5 +34,16 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
     result_expires=3600,  # Results expire after 1 hour
 )
+
+# Celery Beat schedule for periodic tasks
+celery_app.conf.beat_schedule = {
+    'execute-due-scheduled-reports': {
+        'task': 'execute_due_scheduled_reports',
+        'schedule': 60.0,  # Run every 60 seconds (1 minute)
+        'options': {
+            'expires': 55,  # Task expires after 55 seconds to avoid overlap
+        }
+    },
+}
 
 logger.info("celery_initialized", broker=REDIS_URL)
