@@ -318,21 +318,21 @@ Implementation order prioritizes database foundation first, then RBAC (security 
     - Create Pydantic schemas for schedule creation and response
     - _Requirements: 12.1-12.4_
 
-  - [ ] 14.2 Create scheduled report service
+  - [x] 14.2 Create scheduled report service
     - Create Backend/app/services/scheduled_report_service.py
     - Implement create_schedule(), get_schedules(), delete_schedule() methods
     - Implement execute_scheduled_report(schedule_id) method
     - Validate cron expressions and frequency values
     - _Requirements: 12.1-12.7_
 
-  - [ ] 14.3 Create Celery beat tasks for scheduled reports
+  - [~] 14.3 Create Celery beat tasks for scheduled reports
     - Add periodic task configuration to Backend/app/celery_app.py
     - Implement scheduled report execution task
     - Update next_run_at after each execution
     - Send generated reports via email
     - _Requirements: 12.5, 12.6_
 
-  - [ ] 14.4 Create scheduled report API endpoints
+  - [~] 14.4 Create scheduled report API endpoints
     - Add endpoints to Backend/app/api/reports.py
     - Implement POST /api/reports/schedules (create schedule)
     - Implement GET /api/reports/schedules (list schedules)
@@ -340,21 +340,21 @@ Implementation order prioritizes database foundation first, then RBAC (security 
     - Apply require_role decorator (Accountant+ access)
     - _Requirements: 12.1, 12.7, 12.8_
 
-  - [ ] 14.5 Write integration tests for scheduled reports
+  - [~] 14.5 Write integration tests for scheduled reports
     - Test schedule creation, listing, and deletion
     - Test schedule execution (mock Celery beat)
     - Test authorization enforcement
     - _Requirements: 24.6_
 
 - [ ] 15. Report parsers for round-trip testing
-  - [ ] 15.1 Create Excel parser utility
+  - [~] 15.1 Create Excel parser utility
     - Create Backend/app/utils/excel_parser.py
     - Implement parse_excel(file_path) function
     - Return structured data matching export format
     - Validate data types and constraints
     - _Requirements: 28.1-28.3, 28.7_
 
-  - [ ] 15.2 Create CSV parser utility
+  - [~] 15.2 Create CSV parser utility
     - Create Backend/app/utils/csv_parser.py
     - Implement parse_csv(file_path) function
     - Return structured data matching export format
