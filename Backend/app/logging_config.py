@@ -8,8 +8,20 @@ from structlog.types import EventDict, Processor
 
 
 def add_app_context(logger: Any, method_name: str, event_dict: EventDict) -> EventDict:
-    """Add application context to log entries"""
+    """
+    Add application context to log entries.
+    
+    This processor adds:
+    - Application name
+    - Correlation ID (if available in context)
+    
+    Requirement 29.6: Include correlation IDs in logs to trace requests across components
+    """
     event_dict["app"] = "sme-costing-copilot"
+    
+    # Correlation ID is automatically included via contextvars.merge_contextvars processor
+    # This ensures all logs within a request context include the correlation_id
+    
     return event_dict
 
 

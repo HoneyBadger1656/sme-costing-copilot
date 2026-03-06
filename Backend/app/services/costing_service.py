@@ -115,6 +115,40 @@ class CostingService:
         db.commit()
         db.refresh(order)
         
+        # Trigger notification for order evaluation completion
+        try:
+            from app.services.notification_trigger_service import NotificationTriggerService
+            
+            # Get order owner/creator
+            if order.created_by:
+                trigger_service = NotificationTriggerService(db)
+                
+                # Prepare order data for notification
+                order_data = {
+                    'user_name': 'User',  # TODO: Get actual user name
+                    'order_name': f'Order #{order.id}',
+                    'order_id': order.id,
+                    'total_cost': order.total_cost,
+                    'margin_percentage': order.margin_percentage,
+                    'status': 'Completed',
+                    'order_url': f'/orders/{order.id}',
+                    'insights': evaluation.get('recommendations', [])[:3]  # Top 3 recommendations
+                }
+                
+                trigger_service.trigger_order_evaluation_complete(
+                    order_id=order.id,
+                    user_id=order.created_by,
+                    order_data=order_data
+                )
+        except Exception as e:
+            # Don't fail the evaluation if notification fails
+            logger = __import__('app.logging_config', fromlist=['get_logger']).get_logger(__name__)
+            logger.warning(
+                "notification_trigger_failed",
+                error=str(e),
+                order_id=order.id
+            )
+        
         return evaluation
     
     @staticmethod

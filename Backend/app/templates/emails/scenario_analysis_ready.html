@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Scenario Analysis Ready - SME Costing Copilot{% endblock %}
+
+{% block header_title %}Scenario Analysis Ready{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>Your scenario analysis <strong>{{ scenario_name }}</strong> has been completed and is ready for review.</p>
+
+<div class="alert alert-info">
+    <strong>Analysis Summary:</strong><br>
+    Scenario ID: {{ scenario_id }}<br>
+    Scenarios Compared: {{ scenario_count }}<br>
+    Best Option: {{ best_option }}<br>
+    Potential Savings: {{ potential_savings|currency }}
+</div>
+
+<p>The AI has analyzed multiple scenarios and identified the optimal approach for your business needs.</p>
+
+<p style="text-align: center;">
+    <a href="{{ scenario_url }}" class="button">View Analysis Results</a>
+</p>
+
+<p>
+    <strong>Recommendations:</strong>
+</p>
+<ul>
+    {% for recommendation in recommendations %}
+    <li>{{ recommendation }}</li>
+    {% endfor %}
+</ul>
+
+<p>Review the detailed analysis to make informed decisions about your costing strategy.</p>
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}

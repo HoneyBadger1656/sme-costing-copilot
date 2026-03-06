@@ -77,13 +77,15 @@ def log_audit_event(
         Created AuditLog object or None if logging failed
     """
     try:
-        # Sanitize sensitive data
+        # Sanitize sensitive data (Requirement 30.5, 30.6)
         sanitized_old = sanitize_sensitive_fields(old_values) if old_values else None
         sanitized_new = sanitize_sensitive_fields(new_values) if new_values else None
         
         # Extract IP address and user agent from request
         ip_address = None
         user_agent = None
+        correlation_id = None
+        
         if request:
             # Get real IP from X-Forwarded-For header or client host
             ip_address = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
@@ -94,6 +96,9 @@ def log_audit_event(
             # Truncate user agent if too long
             if user_agent and len(user_agent) > 500:
                 user_agent = user_agent[:497] + "..."
+            
+            # Get correlation ID from request state (Requirement 29.6)
+            correlation_id = getattr(request.state, "correlation_id", None)
         
         # Create audit log entry
         audit_log = AuditLog(
@@ -112,13 +117,15 @@ def log_audit_event(
         db.add(audit_log)
         db.commit()
         
+        # Log with correlation ID for tracing (Requirement 29.6)
         logger.info(
             "audit_log_created",
             action=action,
             table_name=table_name,
             record_id=record_id,
             tenant_id=tenant_id,
-            user_id=user_id
+            user_id=user_id,
+            correlation_id=correlation_id
         )
         
         return audit_log

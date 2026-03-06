@@ -17,10 +17,14 @@ from app.utils.rbac import require_role
 from app.logging_config import get_logger
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import os
 
 logger = get_logger(__name__)
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
+
+# Rate limiting configuration from environment variables (Requirement 30.3)
+RATE_LIMIT_REPORTS_PER_HOUR = int(os.getenv("RATE_LIMIT_REPORTS_PER_HOUR", "10"))
 
 
 # Pydantic schemas
@@ -90,7 +94,7 @@ class ScheduleResponse(BaseModel):
 
 
 @router.post("/generate", response_model=ReportGenerateResponse)
-@limiter.limit("10/minute")
+@limiter.limit(f"{RATE_LIMIT_REPORTS_PER_HOUR}/hour")
 def generate_report(
     request: Request,
     report_request: ReportGenerateRequest,
@@ -101,7 +105,7 @@ def generate_report(
     Generate a report.
     
     Requires Accountant, Admin, or Owner role.
-    Rate limited to 10 requests per minute.
+    Rate limited based on RATE_LIMIT_REPORTS_PER_HOUR environment variable (Requirement 30.3).
     """
     try:
         logger.info(

@@ -1,0 +1,36 @@
+{% extends "base.txt" %}
+
+{% block header %}⚠️ OVERDUE RECEIVABLES ALERT{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+You have {{ invoice_count }} overdue invoice(s) requiring attention.
+
+RECEIVABLES SUMMARY:
+- Overdue Invoices: {{ invoice_count }}
+- Total Amount Overdue: {{ total_overdue|currency }}
+- Oldest Invoice: {{ oldest_invoice_days }} days overdue
+- Alert Date: {{ alert_date|datetime }}
+
+OVERDUE INVOICES:
+{% for invoice in invoices %}
+- {{ invoice.client_name }} | Invoice #{{ invoice.invoice_number }} | {{ invoice.amount|currency }} | {{ invoice.days_overdue }} days overdue
+{% endfor %}
+
+View All Invoices: {{ invoices_url }}
+
+RECOMMENDED ACTIONS:
+- Send payment reminders to clients with overdue invoices
+- Follow up with phone calls for invoices over 30 days overdue
+- Review payment terms and consider requiring deposits
+- Implement automated payment reminders
+- Consider offering early payment discounts
+
+CASH FLOW IMPACT:
+Collecting these overdue receivables will improve your working capital by 
+{{ total_overdue|currency }}.
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

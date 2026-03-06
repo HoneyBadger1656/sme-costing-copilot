@@ -11,8 +11,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data, roles, audit, reports
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products
 from app.middleware.security import add_security_middleware
+from app.middleware.correlation_middleware import add_correlation_middleware
 from app.exceptions import AppException
 from app.logging_config import setup_logging, get_logger
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -47,6 +48,10 @@ app = FastAPI(
 # Add rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add correlation ID middleware (must be added early to track all requests)
+# Requirement 29.6: Include correlation IDs in logs to trace requests across components
+add_correlation_middleware(app)
 
 # Add security middleware
 add_security_middleware(app)
@@ -143,6 +148,15 @@ app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 app.include_router(data_upload.router, prefix="/api/data", tags=["Data Upload"])
 app.include_router(scenarios.router, prefix="/api/scenarios", tags=["Scenarios"])
+app.include_router(financials.router, prefix="/api/financials", tags=["Financials"])
+app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistant"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
+app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
+app.include_router(financial_data.router, prefix="/api/financial-data", tags=["Financial Data"])
+app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
+app.include_router(audit.router, prefix="/api", tags=["Audit"])
+app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(financials.router, prefix="/api/financials", tags=["Financials"])
 app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistant"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])

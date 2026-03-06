@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Overdue Receivables Alert - SME Costing Copilot{% endblock %}
+
+{% block header_title %}⚠️ Overdue Receivables Alert{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>You have {{ invoice_count }} overdue invoice(s) requiring attention.</p>
+
+<div class="alert alert-danger">
+    <strong>Receivables Summary:</strong><br>
+    Overdue Invoices: {{ invoice_count }}<br>
+    Total Amount Overdue: {{ total_overdue|currency }}<br>
+    Oldest Invoice: {{ oldest_invoice_days }} days overdue<br>
+    Alert Date: {{ alert_date|datetime }}
+</div>
+
+<p>
+    <strong>Overdue Invoices:</strong>
+</p>
+<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+    <thead>
+        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+            <th style="padding: 10px; text-align: left;">Client</th>
+            <th style="padding: 10px; text-align: left;">Invoice #</th>
+            <th style="padding: 10px; text-align: right;">Amount</th>
+            <th style="padding: 10px; text-align: right;">Days Overdue</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for invoice in invoices %}
+        <tr style="border-bottom: 1px solid #dee2e6;">
+            <td style="padding: 10px;">{{ invoice.client_name }}</td>
+            <td style="padding: 10px;">{{ invoice.invoice_number }}</td>
+            <td style="padding: 10px; text-align: right;">{{ invoice.amount|currency }}</td>
+            <td style="padding: 10px; text-align: right; color: #dc3545;">{{ invoice.days_overdue }} days</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p style="text-align: center;">
+    <a href="{{ invoices_url }}" class="button">View All Invoices</a>
+</p>
+
+<p>
+    <strong>Recommended Actions:</strong>
+</p>
+<ul>
+    <li>Send payment reminders to clients with overdue invoices</li>
+    <li>Follow up with phone calls for invoices over 30 days overdue</li>
+    <li>Review payment terms and consider requiring deposits</li>
+    <li>Implement automated payment reminders</li>
+    <li>Consider offering early payment discounts</li>
+</ul>
+
+<p>
+    <strong>Cash Flow Impact:</strong><br>
+    Collecting these overdue receivables will improve your working capital by {{ total_overdue|currency }}.
+</p>
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}

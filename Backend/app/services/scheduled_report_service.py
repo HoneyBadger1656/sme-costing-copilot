@@ -7,6 +7,7 @@ import re
 
 from app.models.models import ReportSchedule
 from app.services.report_service import ReportService
+from app.utils.validation import validate_email_list, ValidationError
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -62,18 +63,22 @@ class ScheduledReportService:
         if cron_expression:
             self._validate_cron_expression(cron_expression)
         
-        # Validate recipients
-        if not recipients or not isinstance(recipients, list):
-            raise ValueError("Recipients must be a non-empty list")
-        
-        for email in recipients:
-            if not self._is_valid_email(email):
-                raise ValueError(f"Invalid email address: {email}")
+        # Validate recipients using secure email validation (Requirement 30.4)
+        try:
+            validated_recipients = validate_email_list(recipients, max_recipients=100)
+        except ValidationError as e:
+            logger.warning(
+                "scheduled_report_email_validation_failed",
+                error=str(e),
+                tenant_id=tenant_id,
+                user_id=user_id
+            )
+            raise ValueError(f"Invalid recipient email addresses: {e}")
         
         # Calculate next run time
         next_run_at = self._calculate_next_run(frequency, cron_expression)
         
-        # Create schedule
+        # Create schedule with validated recipients
         schedule = ReportSchedule(
             tenant_id=tenant_id,
             user_id=user_id,
@@ -82,7 +87,7 @@ class ScheduledReportService:
             parameters=parameters or {},
             frequency=frequency,
             cron_expression=cron_expression,
-            recipients=recipients,
+            recipients=validated_recipients,
             next_run_at=next_run_at,
             is_active=True
         )
@@ -275,20 +280,6 @@ class ScheduledReportService:
                 raise ValueError(
                     f"Invalid characters in cron field {i+1}: {part}"
                 )
-    
-    def _is_valid_email(self, email: str) -> bool:
-        """
-        Validate email address format.
-        
-        Args:
-            email: Email address string
-        
-        Returns:
-            True if valid, False otherwise
-        """
-        # Basic email validation
-        pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-        return bool(pattern.match(email))
     
     def _calculate_next_run(
         self,

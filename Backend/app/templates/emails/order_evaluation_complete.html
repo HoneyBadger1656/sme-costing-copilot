@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Order Evaluation Complete - SME Costing Copilot{% endblock %}
+
+{% block header_title %}Order Evaluation Complete{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>Your order evaluation for <strong>{{ order_name }}</strong> has been completed successfully.</p>
+
+<div class="alert alert-success">
+    <strong>Evaluation Summary:</strong><br>
+    Order ID: {{ order_id }}<br>
+    Total Cost: {{ total_cost|currency }}<br>
+    Margin: {{ margin_percentage }}%<br>
+    Status: {{ status }}
+</div>
+
+<p>The detailed evaluation report is now available in your dashboard.</p>
+
+<p style="text-align: center;">
+    <a href="{{ order_url }}" class="button">View Order Details</a>
+</p>
+
+<p>
+    <strong>Key Insights:</strong>
+</p>
+<ul>
+    {% for insight in insights %}
+    <li>{{ insight }}</li>
+    {% endfor %}
+</ul>
+
+<p>If you have any questions about this evaluation, please don't hesitate to reach out to our support team.</p>
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}

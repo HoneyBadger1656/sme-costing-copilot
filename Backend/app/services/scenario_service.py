@@ -44,6 +44,44 @@ class ScenarioService:
         db.commit()
         db.refresh(scenario)
         
+        # Trigger notification for scenario analysis completion
+        try:
+            from app.services.notification_trigger_service import NotificationTriggerService
+            
+            # Get scenario creator
+            if scenario.created_by:
+                trigger_service = NotificationTriggerService(db)
+                
+                # Prepare scenario data for notification
+                scenario_data = {
+                    'user_name': 'User',  # TODO: Get actual user name
+                    'scenario_name': scenario.name,
+                    'scenario_id': scenario.id,
+                    'scenario_count': 1,  # Single scenario created
+                    'best_option': scenario.name,
+                    'potential_savings': impact.get('margin_change', 0),
+                    'scenario_url': f'/scenarios/{scenario.id}',
+                    'recommendations': [
+                        impact.get('cash_flow_insight', ''),
+                        impact.get('profitability_insight', ''),
+                        impact.get('recommendation', '')
+                    ]
+                }
+                
+                trigger_service.trigger_scenario_analysis_ready(
+                    scenario_id=scenario.id,
+                    user_id=scenario.created_by,
+                    scenario_data=scenario_data
+                )
+        except Exception as e:
+            # Don't fail the scenario creation if notification fails
+            logger = __import__('app.logging_config', fromlist=['get_logger']).get_logger(__name__)
+            logger.warning(
+                "notification_trigger_failed",
+                error=str(e),
+                scenario_id=scenario.id
+            )
+        
         return scenario
     
     @staticmethod

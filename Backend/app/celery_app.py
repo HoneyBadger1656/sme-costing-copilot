@@ -44,6 +44,27 @@ celery_app.conf.beat_schedule = {
             'expires': 55,  # Task expires after 55 seconds to avoid overlap
         }
     },
+    'send-low-margin-alerts': {
+        'task': 'send_low_margin_alerts',
+        'schedule': crontab(hour=9, minute=0),  # Run daily at 9:00 AM
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour
+        }
+    },
+    'send-overdue-receivables-alerts': {
+        'task': 'send_overdue_receivables_alerts',
+        'schedule': crontab(hour=9, minute=0),  # Run daily at 9:00 AM
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour
+        }
+    },
+    'send-digest-emails': {
+        'task': 'send_digest_emails',
+        'schedule': crontab(hour=18, minute=0),  # Run daily at 6:00 PM
+        'options': {
+            'expires': 3600,  # Task expires after 1 hour
+        }
+    },
 }
 
 logger.info("celery_initialized", broker=REDIS_URL)

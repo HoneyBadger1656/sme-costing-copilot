@@ -1,0 +1,32 @@
+{% extends "base.txt" %}
+
+{% block header %}SCENARIO ANALYSIS READY{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+Your scenario analysis {{ scenario_name }} has been completed and is ready 
+for review.
+
+ANALYSIS SUMMARY:
+- Scenario ID: {{ scenario_id }}
+- Scenarios Compared: {{ scenario_count }}
+- Best Option: {{ best_option }}
+- Potential Savings: {{ potential_savings|currency }}
+
+The AI has analyzed multiple scenarios and identified the optimal approach 
+for your business needs.
+
+View Analysis Results: {{ scenario_url }}
+
+RECOMMENDATIONS:
+{% for recommendation in recommendations %}
+- {{ recommendation }}
+{% endfor %}
+
+Review the detailed analysis to make informed decisions about your costing 
+strategy.
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

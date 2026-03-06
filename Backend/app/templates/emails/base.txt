@@ -1,0 +1,12 @@
+{% block header %}SME COSTING COPILOT{% endblock %}
+================================================================================
+
+{% block content %}{% endblock %}
+
+================================================================================
+© {{ year }} SME Costing Copilot. All rights reserved.
+AI-powered costing and working capital decisions for Indian SMEs
+
+{% if unsubscribe_url %}
+Unsubscribe: {{ unsubscribe_url }}
+{% endif %}

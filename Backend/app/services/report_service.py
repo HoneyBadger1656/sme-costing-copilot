@@ -18,6 +18,7 @@ from app.services.report_data_service import (
 from app.utils.pdf_generator import generate_pdf
 from app.utils.excel_generator import generate_excel
 from app.utils.csv_generator import generate_csv
+from app.utils.validation import sanitize_report_parameters, validate_file_path, ValidationError
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -53,25 +54,48 @@ class ReportService:
             Report metadata including file path and task ID
         """
         try:
+            # Sanitize report parameters to prevent injection attacks (Requirement 30.1)
+            try:
+                sanitized_parameters = sanitize_report_parameters(parameters)
+            except ValidationError as e:
+                logger.warning(
+                    "report_parameter_validation_failed",
+                    error=str(e),
+                    tenant_id=tenant_id,
+                    user_id=user_id
+                )
+                raise ValueError(f"Invalid report parameters: {e}")
+            
             # Validate template and format
             template = get_template(template_id)
             if not is_format_supported(template_id, format):
                 raise ValueError(f"Format '{format}' not supported for template '{template_id}'")
             
             # Validate parameters
-            validate_template_parameters(template_id, parameters)
+            validate_template_parameters(template_id, sanitized_parameters)
             
             # Fetch data based on template
-            data = self._fetch_report_data(template_id, parameters, tenant_id)
+            data = self._fetch_report_data(template_id, sanitized_parameters, tenant_id)
             
             # Generate report file
-            report_bytes = self._generate_report_file(template_id, format, data, parameters)
+            report_bytes = self._generate_report_file(template_id, format, data, sanitized_parameters)
             
-            # Save to storage
+            # Save to storage with path validation (Requirement 30.2)
             task_id = str(uuid.uuid4())
             file_extension = format if format != "excel" else "xlsx"
             file_name = f"{template_id}_{task_id}.{file_extension}"
-            file_path = self.storage_path / file_name
+            
+            # Validate file path to prevent directory traversal
+            try:
+                file_path = validate_file_path(file_name, str(self.storage_path))
+            except ValidationError as e:
+                logger.error(
+                    "report_file_path_validation_failed",
+                    error=str(e),
+                    file_name=file_name,
+                    tenant_id=tenant_id
+                )
+                raise ValueError(f"Invalid file path: {e}")
             
             with open(file_path, 'wb') as f:
                 f.write(report_bytes)
@@ -84,6 +108,7 @@ class ReportService:
                 user_id=user_id,
                 task_id=task_id,
                 file_size=len(report_bytes)
+                # correlation_id automatically included via structlog context
             )
             
             return {
@@ -105,6 +130,8 @@ class ReportService:
                 template_id=template_id,
                 format=format,
                 tenant_id=tenant_id
+                # correlation_id automatically included via structlog context
+                # Requirement 29.6: Include correlation IDs in logs to trace requests across components
             )
             raise
     

@@ -451,3 +451,311 @@ def send_scheduled_report_email_task(
             "success": False,
             "message": f"Email sending failed: {str(e)}"
         }
+
+
+
+@celery_app.task(bind=True, name="send_low_margin_alerts")
+def send_low_margin_alerts_task(self):
+    """
+    Daily scheduled task to send low margin alerts.
+    
+    Runs at 9:00 AM tenant local time.
+    Sends alerts to Accountant, Admin, and Owner roles.
+    
+    Requirements: 15.4-15.6
+    """
+    db = SessionLocal()
+    
+    try:
+        from app.models.models import Product, Tenant
+        from app.services.notification_trigger_service import NotificationTriggerService
+        from sqlalchemy import and_
+        
+        logger.info("low_margin_alerts_task_started", task_id=self.request.id)
+        
+        # Get all tenants
+        tenants = db.query(Tenant).all()
+        
+        total_alerts_sent = 0
+        
+        for tenant in tenants:
+            # Get products with low margins for this tenant
+            # Assuming margin threshold of 15%
+            margin_threshold = 15.0
+            
+            low_margin_products = db.query(Product).filter(
+                and_(
+                    Product.tenant_id == tenant.id,
+                    Product.margin_percentage < margin_threshold
+                )
+            ).all()
+            
+            if not low_margin_products:
+                continue
+            
+            # Calculate revenue impact
+            revenue_impact = sum(
+                p.selling_price * 100  # Estimate based on selling price
+                for p in low_margin_products
+            )
+            
+            # Prepare alert data
+            alert_data = {
+                'product_count': len(low_margin_products),
+                'margin_threshold': margin_threshold,
+                'revenue_impact': revenue_impact,
+                'products': [
+                    {
+                        'name': p.name,
+                        'current_margin': p.margin_percentage,
+                        'target_margin': 20.0  # Target margin
+                    }
+                    for p in low_margin_products[:10]  # Top 10 products
+                ],
+                'products_url': '/products'
+            }
+            
+            # Trigger notifications
+            trigger_service = NotificationTriggerService(db)
+            sent_count = trigger_service.trigger_low_margin_alert(
+                tenant_id=tenant.id,
+                alert_data=alert_data
+            )
+            
+            total_alerts_sent += sent_count
+            
+            logger.info(
+                "low_margin_alerts_sent",
+                tenant_id=tenant.id,
+                product_count=len(low_margin_products),
+                alerts_sent=sent_count
+            )
+        
+        logger.info(
+            "low_margin_alerts_task_completed",
+            task_id=self.request.id,
+            total_alerts_sent=total_alerts_sent
+        )
+        
+        return {
+            "success": True,
+            "total_alerts_sent": total_alerts_sent
+        }
+        
+    except Exception as e:
+        logger.exception(
+            "low_margin_alerts_task_failed",
+            error=str(e),
+            task_id=self.request.id
+        )
+        raise
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="send_overdue_receivables_alerts")
+def send_overdue_receivables_alerts_task(self):
+    """
+    Daily scheduled task to send overdue receivables alerts.
+    
+    Runs at 9:00 AM tenant local time.
+    Sends alerts to Accountant, Admin, and Owner roles.
+    
+    Requirements: 15.4-15.6
+    """
+    db = SessionLocal()
+    
+    try:
+        from app.models.models import Invoice, Tenant
+        from app.services.notification_trigger_service import NotificationTriggerService
+        from sqlalchemy import and_
+        from datetime import datetime, timedelta
+        
+        logger.info("overdue_receivables_alerts_task_started", task_id=self.request.id)
+        
+        # Get all tenants
+        tenants = db.query(Tenant).all()
+        
+        total_alerts_sent = 0
+        
+        for tenant in tenants:
+            # Get overdue invoices for this tenant
+            today = datetime.utcnow().date()
+            
+            overdue_invoices = db.query(Invoice).filter(
+                and_(
+                    Invoice.tenant_id == tenant.id,
+                    Invoice.due_date < today,
+                    Invoice.status != 'paid'
+                )
+            ).all()
+            
+            if not overdue_invoices:
+                continue
+            
+            # Calculate totals
+            total_overdue = sum(inv.amount for inv in overdue_invoices)
+            
+            # Find oldest invoice
+            oldest_invoice = min(overdue_invoices, key=lambda inv: inv.due_date)
+            oldest_invoice_days = (today - oldest_invoice.due_date).days
+            
+            # Prepare alert data
+            alert_data = {
+                'invoice_count': len(overdue_invoices),
+                'total_overdue': total_overdue,
+                'oldest_invoice_days': oldest_invoice_days,
+                'invoices': [
+                    {
+                        'client_name': inv.client.name if inv.client else 'Unknown',
+                        'invoice_number': inv.invoice_number,
+                        'amount': inv.amount,
+                        'days_overdue': (today - inv.due_date).days
+                    }
+                    for inv in overdue_invoices[:10]  # Top 10 invoices
+                ],
+                'invoices_url': '/invoices'
+            }
+            
+            # Trigger notifications
+            trigger_service = NotificationTriggerService(db)
+            sent_count = trigger_service.trigger_overdue_receivables(
+                tenant_id=tenant.id,
+                alert_data=alert_data
+            )
+            
+            total_alerts_sent += sent_count
+            
+            logger.info(
+                "overdue_receivables_alerts_sent",
+                tenant_id=tenant.id,
+                invoice_count=len(overdue_invoices),
+                alerts_sent=sent_count
+            )
+        
+        logger.info(
+            "overdue_receivables_alerts_task_completed",
+            task_id=self.request.id,
+            total_alerts_sent=total_alerts_sent
+        )
+        
+        return {
+            "success": True,
+            "total_alerts_sent": total_alerts_sent
+        }
+        
+    except Exception as e:
+        logger.exception(
+            "overdue_receivables_alerts_task_failed",
+            error=str(e),
+            task_id=self.request.id
+        )
+        raise
+    finally:
+        db.close()
+
+
+
+@celery_app.task(bind=True, name="send_digest_emails")
+def send_digest_emails_task(self):
+    """
+    Daily scheduled task to send digest emails.
+    
+    Runs at user's configured time (default 6:00 PM).
+    Sends accumulated notifications in a single digest email.
+    
+    Requirements: 17.2, 17.8
+    """
+    db = SessionLocal()
+    
+    try:
+        from app.models.models import User, NotificationPreference
+        from app.services.notification_preference_service import DigestAccumulationService
+        from app.services.email_service import EmailService
+        from datetime import datetime, timedelta
+        
+        logger.info("digest_emails_task_started", task_id=self.request.id)
+        
+        # Get digest accumulation service
+        digest_service = DigestAccumulationService(db)
+        email_service = EmailService()
+        
+        # Get all users with digest mode enabled
+        # For now, we'll get all users and check their preferences
+        users = db.query(User).all()
+        
+        total_digests_sent = 0
+        
+        for user in users:
+            # Get accumulated notifications
+            notifications = digest_service.get_accumulated_notifications(user.id)
+            
+            if not notifications:
+                continue
+            
+            # Get digest summary
+            summary = digest_service.get_digest_summary(user.id)
+            
+            # Prepare template context
+            period_end = datetime.utcnow()
+            period_start = period_end - timedelta(days=1)
+            
+            context = {
+                'user_name': user.email.split('@')[0],
+                'total_count': len(notifications),
+                'period_start': period_start,
+                'period_end': period_end,
+                'dashboard_url': '/dashboard',
+                'order_evaluations': summary.get('order_evaluation_complete', {}),
+                'scenario_analyses': summary.get('scenario_analysis_ready', {}),
+                'low_margin_alerts': summary.get('low_margin_alert', {}),
+                'overdue_receivables': summary.get('overdue_receivables', {})
+            }
+            
+            try:
+                # Send digest email
+                email_service.send_notification(
+                    recipients=[user.email],
+                    template_name='digest',
+                    context=context,
+                    subject='Your Daily Digest - SME Costing Copilot'
+                )
+                
+                # Clear accumulated notifications
+                digest_service.clear_accumulated_notifications(user.id)
+                
+                total_digests_sent += 1
+                
+                logger.info(
+                    "digest_email_sent",
+                    user_id=user.id,
+                    notification_count=len(notifications)
+                )
+                
+            except Exception as e:
+                logger.exception(
+                    "digest_email_send_failed",
+                    error=str(e),
+                    user_id=user.id
+                )
+        
+        logger.info(
+            "digest_emails_task_completed",
+            task_id=self.request.id,
+            total_digests_sent=total_digests_sent
+        )
+        
+        return {
+            "success": True,
+            "total_digests_sent": total_digests_sent
+        }
+        
+    except Exception as e:
+        logger.exception(
+            "digest_emails_task_failed",
+            error=str(e),
+            task_id=self.request.id
+        )
+        raise
+    finally:
+        db.close()

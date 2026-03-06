@@ -1,0 +1,35 @@
+{% extends "base.txt" %}
+
+{% block header %}⚠️ LOW MARGIN ALERT{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+We've detected {{ product_count }} product(s) with margins below your 
+configured threshold.
+
+ALERT SUMMARY:
+- Products Affected: {{ product_count }}
+- Threshold: {{ margin_threshold }}%
+- Potential Revenue Impact: {{ revenue_impact|currency }}
+- Alert Date: {{ alert_date|datetime }}
+
+PRODUCTS WITH LOW MARGINS:
+{% for product in products %}
+- {{ product.name }}: {{ product.current_margin }}% (Target: {{ product.target_margin }}%)
+{% endfor %}
+
+Review Products: {{ products_url }}
+
+RECOMMENDED ACTIONS:
+- Review pricing strategy for affected products
+- Analyze cost structure and identify optimization opportunities
+- Consider renegotiating supplier contracts
+- Evaluate product mix and focus on higher-margin items
+
+Taking action on these low-margin products can significantly improve your 
+overall profitability.
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Low Margin Alert - SME Costing Copilot{% endblock %}
+
+{% block header_title %}⚠️ Low Margin Alert{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>We've detected {{ product_count }} product(s) with margins below your configured threshold.</p>
+
+<div class="alert alert-warning">
+    <strong>Alert Summary:</strong><br>
+    Products Affected: {{ product_count }}<br>
+    Threshold: {{ margin_threshold }}%<br>
+    Potential Revenue Impact: {{ revenue_impact|currency }}<br>
+    Alert Date: {{ alert_date|datetime }}
+</div>
+
+<p>
+    <strong>Products with Low Margins:</strong>
+</p>
+<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+    <thead>
+        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+            <th style="padding: 10px; text-align: left;">Product</th>
+            <th style="padding: 10px; text-align: right;">Current Margin</th>
+            <th style="padding: 10px; text-align: right;">Target Margin</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in products %}
+        <tr style="border-bottom: 1px solid #dee2e6;">
+            <td style="padding: 10px;">{{ product.name }}</td>
+            <td style="padding: 10px; text-align: right; color: #dc3545;">{{ product.current_margin }}%</td>
+            <td style="padding: 10px; text-align: right;">{{ product.target_margin }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p style="text-align: center;">
+    <a href="{{ products_url }}" class="button">Review Products</a>
+</p>
+
+<p>
+    <strong>Recommended Actions:</strong>
+</p>
+<ul>
+    <li>Review pricing strategy for affected products</li>
+    <li>Analyze cost structure and identify optimization opportunities</li>
+    <li>Consider renegotiating supplier contracts</li>
+    <li>Evaluate product mix and focus on higher-margin items</li>
+</ul>
+
+<p>Taking action on these low-margin products can significantly improve your overall profitability.</p>
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}

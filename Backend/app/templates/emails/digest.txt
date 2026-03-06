@@ -1,0 +1,53 @@
+{% extends "base.txt" %}
+
+{% block header %}YOUR DAILY DIGEST{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+Here's your daily summary of activity from SME Costing Copilot.
+
+DIGEST SUMMARY:
+- Total Notifications: {{ total_count }}
+- Period: {{ period_start|datetime }} - {{ period_end|datetime }}
+
+{% if order_evaluations %}
+ORDER EVALUATIONS ({{ order_evaluations.count }}):
+{% for notification in order_evaluations.notifications %}
+- {{ notification.order_name }} - Margin: {{ notification.margin_percentage }}%
+  View: {{ notification.order_url }}
+{% endfor %}
+{% endif %}
+
+{% if scenario_analyses %}
+SCENARIO ANALYSES ({{ scenario_analyses.count }}):
+{% for notification in scenario_analyses.notifications %}
+- {{ notification.scenario_name }} - Potential Savings: {{ notification.potential_savings|currency }}
+  View: {{ notification.scenario_url }}
+{% endfor %}
+{% endif %}
+
+{% if low_margin_alerts %}
+⚠️ LOW MARGIN ALERTS ({{ low_margin_alerts.count }}):
+{% for notification in low_margin_alerts.notifications %}
+- {{ notification.product_count }} products below {{ notification.margin_threshold }}% margin
+  Review: {{ notification.products_url }}
+{% endfor %}
+{% endif %}
+
+{% if overdue_receivables %}
+⚠️ OVERDUE RECEIVABLES ({{ overdue_receivables.count }}):
+{% for notification in overdue_receivables.notifications %}
+- {{ notification.invoice_count }} overdue invoices totaling {{ notification.total_overdue|currency }}
+  View: {{ notification.invoices_url }}
+{% endfor %}
+{% endif %}
+
+Go to Dashboard: {{ dashboard_url }}
+
+You're receiving this digest because you have digest mode enabled for your 
+notifications. You can change your notification preferences at any time.
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

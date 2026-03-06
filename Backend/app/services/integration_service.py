@@ -170,6 +170,33 @@ class TallyIntegration:
             sync_record.completed_at = datetime.utcnow()
             db.commit()
             
+            # Trigger sync status notification
+            try:
+                from app.services.notification_trigger_service import NotificationTriggerService
+                from app.models.models import Client
+                
+                client = db.query(Client).filter(Client.id == client_id).first()
+                if client:
+                    trigger_service = NotificationTriggerService(db)
+                    
+                    sync_data = {
+                        'records_synced': synced_count,
+                        'sync_duration': 'N/A',
+                        'completed_at': sync_record.completed_at,
+                        'integration_url': '/integrations',
+                        'sync_summary': [f'{synced_count} ledgers synced from Tally']
+                    }
+                    
+                    trigger_service.trigger_sync_status(
+                        integration_name='Tally',
+                        status='success',
+                        tenant_id=client.tenant_id,
+                        sync_data=sync_data
+                    )
+            except Exception as e:
+                logger = __import__('app.logging_config', fromlist=['get_logger']).get_logger(__name__)
+                logger.warning("notification_trigger_failed", error=str(e))
+            
             return {
                 "success": True,
                 "records_synced": synced_count,
@@ -181,6 +208,31 @@ class TallyIntegration:
             sync_record.error_message = str(e)
             sync_record.completed_at = datetime.utcnow()
             db.commit()
+            
+            # Trigger sync failure notification
+            try:
+                from app.services.notification_trigger_service import NotificationTriggerService
+                from app.models.models import Client
+                
+                client = db.query(Client).filter(Client.id == client_id).first()
+                if client:
+                    trigger_service = NotificationTriggerService(db)
+                    
+                    sync_data = {
+                        'error_message': str(e),
+                        'failed_at': sync_record.completed_at,
+                        'integration_url': '/integrations'
+                    }
+                    
+                    trigger_service.trigger_sync_status(
+                        integration_name='Tally',
+                        status='failed',
+                        tenant_id=client.tenant_id,
+                        sync_data=sync_data
+                    )
+            except Exception as notify_error:
+                logger = __import__('app.logging_config', fromlist=['get_logger']).get_logger(__name__)
+                logger.warning("notification_trigger_failed", error=str(notify_error))
             
             return {
                 "success": False,

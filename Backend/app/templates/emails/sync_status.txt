@@ -1,0 +1,47 @@
+{% extends "base.txt" %}
+
+{% block header %}INTEGRATION SYNC STATUS{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+Your {{ integration_name }} integration sync has {{ 'completed successfully' if status == 'success' else 'encountered an issue' }}.
+
+{% if status == 'success' %}
+SYNC SUCCESSFUL:
+- Integration: {{ integration_name }}
+- Records Synced: {{ records_synced }}
+- Duration: {{ sync_duration }}
+- Completed At: {{ completed_at|datetime }}
+
+Your data has been successfully synchronized and is now up to date.
+
+View Integration Details: {{ integration_url }}
+
+{% if sync_summary %}
+SYNC SUMMARY:
+{% for item in sync_summary %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+{% else %}
+SYNC FAILED:
+- Integration: {{ integration_name }}
+- Error: {{ error_message }}
+- Failed At: {{ failed_at|datetime }}
+
+We encountered an issue while syncing your data. Our team has been notified 
+and will investigate.
+
+View Error Details: {{ integration_url }}
+
+TROUBLESHOOTING STEPS:
+- Check your integration credentials
+- Verify API access permissions
+- Review the error details in your dashboard
+- Contact support if the issue persists
+{% endif %}
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.txt" %}
+
+{% block header %}ORDER EVALUATION COMPLETE{% endblock %}
+
+{% block content %}
+Hello {{ user_name }},
+
+Your order evaluation for {{ order_name }} has been completed successfully.
+
+EVALUATION SUMMARY:
+- Order ID: {{ order_id }}
+- Total Cost: {{ total_cost|currency }}
+- Margin: {{ margin_percentage }}%
+- Status: {{ status }}
+
+The detailed evaluation report is now available in your dashboard.
+
+View Order Details: {{ order_url }}
+
+KEY INSIGHTS:
+{% for insight in insights %}
+- {{ insight }}
+{% endfor %}
+
+If you have any questions about this evaluation, please don't hesitate to 
+reach out to our support team.
+
+Best regards,
+SME Costing Copilot Team
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Integration Sync Status - SME Costing Copilot{% endblock %}
+
+{% block header_title %}Integration Sync Status{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>Your {{ integration_name }} integration sync has {{ 'completed successfully' if status == 'success' else 'encountered an issue' }}.</p>
+
+{% if status == 'success' %}
+<div class="alert alert-success">
+    <strong>Sync Successful:</strong><br>
+    Integration: {{ integration_name }}<br>
+    Records Synced: {{ records_synced }}<br>
+    Duration: {{ sync_duration }}<br>
+    Completed At: {{ completed_at|datetime }}
+</div>
+{% else %}
+<div class="alert alert-danger">
+    <strong>Sync Failed:</strong><br>
+    Integration: {{ integration_name }}<br>
+    Error: {{ error_message }}<br>
+    Failed At: {{ failed_at|datetime }}
+</div>
+{% endif %}
+
+{% if status == 'success' %}
+<p>Your data has been successfully synchronized and is now up to date.</p>
+
+<p style="text-align: center;">
+    <a href="{{ integration_url }}" class="button">View Integration Details</a>
+</p>
+
+{% if sync_summary %}
+<p>
+    <strong>Sync Summary:</strong>
+</p>
+<ul>
+    {% for item in sync_summary %}
+    <li>{{ item }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% else %}
+<p>We encountered an issue while syncing your data. Our team has been notified and will investigate.</p>
+
+<p style="text-align: center;">
+    <a href="{{ integration_url }}" class="button">View Error Details</a>
+</p>
+
+<p>
+    <strong>Troubleshooting Steps:</strong>
+</p>
+<ul>
+    <li>Check your integration credentials</li>
+    <li>Verify API access permissions</li>
+    <li>Review the error details in your dashboard</li>
+    <li>Contact support if the issue persists</li>
+</ul>
+{% endif %}
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}

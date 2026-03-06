@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Digest - SME Costing Copilot{% endblock %}
+
+{% block header_title %}Your Daily Digest{% endblock %}
+
+{% block content %}
+<p>Hello {{ user_name }},</p>
+
+<p>Here's your daily summary of activity from SME Costing Copilot.</p>
+
+<div class="alert alert-info">
+    <strong>Digest Summary:</strong><br>
+    Total Notifications: {{ total_count }}<br>
+    Period: {{ period_start|datetime }} - {{ period_end|datetime }}
+</div>
+
+{% if order_evaluations %}
+<h3 style="color: #2c3e50; margin-top: 20px;">Order Evaluations ({{ order_evaluations.count }})</h3>
+<ul>
+    {% for notification in order_evaluations.notifications %}
+    <li>
+        <strong>{{ notification.order_name }}</strong> - 
+        Margin: {{ notification.margin_percentage }}%
+        <a href="{{ notification.order_url }}" style="color: #667eea;">View Details</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if scenario_analyses %}
+<h3 style="color: #2c3e50; margin-top: 20px;">Scenario Analyses ({{ scenario_analyses.count }})</h3>
+<ul>
+    {% for notification in scenario_analyses.notifications %}
+    <li>
+        <strong>{{ notification.scenario_name }}</strong> - 
+        Potential Savings: {{ notification.potential_savings|currency }}
+        <a href="{{ notification.scenario_url }}" style="color: #667eea;">View Details</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if low_margin_alerts %}
+<h3 style="color: #dc3545; margin-top: 20px;">⚠️ Low Margin Alerts ({{ low_margin_alerts.count }})</h3>
+<ul>
+    {% for notification in low_margin_alerts.notifications %}
+    <li>
+        {{ notification.product_count }} products below {{ notification.margin_threshold }}% margin
+        <a href="{{ notification.products_url }}" style="color: #667eea;">Review Products</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if overdue_receivables %}
+<h3 style="color: #dc3545; margin-top: 20px;">⚠️ Overdue Receivables ({{ overdue_receivables.count }})</h3>
+<ul>
+    {% for notification in overdue_receivables.notifications %}
+    <li>
+        {{ notification.invoice_count }} overdue invoices totaling {{ notification.total_overdue|currency }}
+        <a href="{{ notification.invoices_url }}" style="color: #667eea;">View Invoices</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<p style="text-align: center; margin-top: 30px;">
+    <a href="{{ dashboard_url }}" class="button">Go to Dashboard</a>
+</p>
+
+<p style="margin-top: 20px; color: #6c757d; font-size: 14px;">
+    You're receiving this digest because you have digest mode enabled for your notifications.
+    You can change your notification preferences at any time.
+</p>
+
+<p>
+    Best regards,<br>
+    SME Costing Copilot Team
+</p>
+{% endblock %}
