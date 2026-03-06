@@ -19,9 +19,9 @@ razorpay==1.4.1
 PyPDF2==3.0.1
 structlog==24.1.0
 slowapi==0.1.9
-pytest==8.0.0
+pytest==7.4.4
 pytest-cov==4.1.0
-pytest-asyncio==0.23.4
+pytest-asyncio==0.21.1
 httpx==0.26.0
 celery==5.3.6
 redis==5.0.1
