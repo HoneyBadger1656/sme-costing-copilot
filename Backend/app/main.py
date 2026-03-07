@@ -11,7 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.database import engine, Base
-from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products
+from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data, roles, audit, reports, notifications
 from app.middleware.security import add_security_middleware
 from app.middleware.correlation_middleware import add_correlation_middleware
 from app.exceptions import AppException
@@ -58,16 +58,16 @@ add_security_middleware(app)
 
 # CORS middleware - restrict to specific origins
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-if ENVIRONMENT == "production":
+CORS_ORIGINS_ENV = os.getenv("CORS_ORIGINS", "")
+
+if CORS_ORIGINS_ENV:
+    # Use explicitly configured CORS origins
+    allowed_origins = [origin.strip() for origin in CORS_ORIGINS_ENV.split(",") if origin.strip()]
+    logger.info("cors_configured_from_env", origins=allowed_origins)
+elif ENVIRONMENT == "production":
     # Production: strict CORS
-    allowed_origins = [
-        origin.strip() 
-        for origin in os.getenv("CORS_ORIGINS", "").split(",") 
-        if origin.strip()
-    ]
-    if not allowed_origins:
-        logger.warning("cors_not_configured", message="CORS_ORIGINS not set in production")
-        allowed_origins = ["https://sme-costing-copilot-frontend.vercel.app"]
+    logger.warning("cors_not_configured", message="CORS_ORIGINS not set in production")
+    allowed_origins = ["https://sme-costing-copilot-frontend.vercel.app"]
 else:
     # Development: allow localhost
     allowed_origins = [
@@ -157,14 +157,6 @@ app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
-app.include_router(financials.router, prefix="/api/financials", tags=["Financials"])
-app.include_router(assistant.router, prefix="/api/assistant", tags=["AI Assistant"])
-app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
-app.include_router(costing.router, prefix="/api/costing", tags=["Costing"])
-app.include_router(financial_data.router, prefix="/api/financial-data", tags=["Financial Data"])
-app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
-app.include_router(audit.router, prefix="/api", tags=["Audit"])
-app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 
 # Serve static files (frontend) - check multiple possible locations
 frontend_paths = [
