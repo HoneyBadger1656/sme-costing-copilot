@@ -16,6 +16,11 @@ export const api = {
     })
     const data = await response.json()
     if (!response.ok) {
+      // Handle FastAPI validation errors
+      if (Array.isArray(data.detail)) {
+        const errorMessages = data.detail.map(err => err.msg).join(', ')
+        throw new Error(errorMessages)
+      }
       throw new Error(data.detail || data.message || 'Registration failed')
     }
     return data
@@ -30,8 +35,16 @@ export const api = {
         password
       })
     })
-    if (!response.ok) throw new Error('Login failed')
-    return response.json()
+    const data = await response.json()
+    if (!response.ok) {
+      // Handle FastAPI validation errors
+      if (Array.isArray(data.detail)) {
+        const errorMessages = data.detail.map(err => err.msg).join(', ')
+        throw new Error(errorMessages)
+      }
+      throw new Error(data.detail || data.message || 'Login failed')
+    }
+    return data
   },
 
   getCurrentUser: async (token) => {
