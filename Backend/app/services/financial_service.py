@@ -2,9 +2,11 @@
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
-from app.models.models import Order, Ledger, Client
+from app.models.models import Order, Ledger, Client, CreditLimit
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional
+from math import ceil
+from app.utils.audit import log_audit_event
 
 class FinancialService:
     
@@ -311,3 +313,311 @@ class FinancialService:
     ) -> int:
         """Calculate cash conversion cycle in days"""
         return days_inventory_outstanding + days_sales_outstanding - days_payables_outstanding
+
+    # ── Task 6 additions ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def get_aging_report(client_id: int, db: Session) -> Dict:
+        """Receivables aging with per-bucket drill-down and percentages."""
+        outstanding = db.query(Ledger).filter(
+            Ledger.client_id == client_id,
+            Ledger.ledger_type == "receivable",
+            Ledger.status == "outstanding"
+        ).all()
+
+        now = datetime.utcnow()
+        buckets: Dict[str, List] = {"0-30": [], "31-60": [], "61-90": [], "90+": []}
+
+        for l in outstanding:
+            days_old = (now - l.transaction_date).days
+            entry = {
+                "id": l.id,
+                "party_name": l.party_name,
+                "amount": round(l.amount, 2),
+                "transaction_date": l.transaction_date.isoformat(),
+                "due_date": l.due_date.isoformat() if l.due_date else None,
+                "days_old": days_old,
+                "reference_type": l.reference_type,
+                "reference_id": l.reference_id,
+            }
+            if days_old <= 30:
+                buckets["0-30"].append(entry)
+            elif days_old <= 60:
+                buckets["31-60"].append(entry)
+            elif days_old <= 90:
+                buckets["61-90"].append(entry)
+            else:
+                buckets["90+"].append(entry)
+
+        total = sum(l.amount for l in outstanding)
+
+        bucket_summary = {}
+        for key, entries in buckets.items():
+            bucket_total = sum(e["amount"] for e in entries)
+            bucket_summary[key] = {
+                "total": round(bucket_total, 2),
+                "percentage": round(bucket_total / total * 100, 1) if total else 0,
+                "count": len(entries),
+                "entries": entries,
+            }
+
+        return {
+            "client_id": client_id,
+            "total_outstanding": round(total, 2),
+            "buckets": bucket_summary,
+            "generated_at": now.isoformat(),
+        }
+
+    @staticmethod
+    def get_working_capital_cycle(client_id: int, period_days: int, db: Session) -> Dict:
+        """Compute DSO, DPO, DIO, CCC for current and prior period."""
+        now = datetime.utcnow()
+        period_start = now - timedelta(days=period_days)
+        prior_start = period_start - timedelta(days=period_days)
+
+        def _compute(start: datetime, end: datetime) -> Dict:
+            orders = db.query(Order).filter(
+                Order.client_id == client_id,
+                Order.order_date >= start,
+                Order.order_date <= end,
+                Order.status != "draft",
+            ).all()
+
+            revenue = sum(o.total_selling_price for o in orders)
+            cogs = sum(o.total_cost for o in orders)
+
+            # DSO: avg receivables / (revenue / period_days)
+            avg_receivables = db.query(func.avg(Ledger.amount)).filter(
+                Ledger.client_id == client_id,
+                Ledger.ledger_type == "receivable",
+                Ledger.transaction_date >= start,
+                Ledger.transaction_date <= end,
+            ).scalar() or 0
+
+            # DPO: avg payables / (cogs / period_days)
+            avg_payables = db.query(func.avg(Ledger.amount)).filter(
+                Ledger.client_id == client_id,
+                Ledger.ledger_type == "payable",
+                Ledger.transaction_date >= start,
+                Ledger.transaction_date <= end,
+            ).scalar() or 0
+
+            daily_revenue = revenue / period_days if period_days else 0
+            daily_cogs = cogs / period_days if period_days else 0
+
+            dso = round(avg_receivables / daily_revenue, 1) if daily_revenue else 0
+            dpo = round(avg_payables / daily_cogs, 1) if daily_cogs else 0
+            # DIO approximated from working_capital_blocked (inventory proxy)
+            avg_wc_blocked = sum(o.working_capital_blocked for o in orders) / len(orders) if orders else 0
+            dio = round(avg_wc_blocked / daily_cogs, 1) if daily_cogs else 0
+            ccc = round(dio + dso - dpo, 1)
+
+            return {"dso": dso, "dpo": dpo, "dio": dio, "ccc": ccc,
+                    "revenue": round(revenue, 2), "cogs": round(cogs, 2)}
+
+        current = _compute(period_start, now)
+        prior = _compute(prior_start, period_start)
+
+        def _delta(curr, prev):
+            return round(curr - prev, 1)
+
+        return {
+            "period_days": period_days,
+            "current": current,
+            "prior": prior,
+            "delta": {
+                "dso": _delta(current["dso"], prior["dso"]),
+                "dpo": _delta(current["dpo"], prior["dpo"]),
+                "dio": _delta(current["dio"], prior["dio"]),
+                "ccc": _delta(current["ccc"], prior["ccc"]),
+            },
+        }
+
+    @staticmethod
+    def get_collection_efficiency(org_id: str, db: Session) -> Dict:
+        """Per-client collection efficiency score and classification."""
+        clients = db.query(Client).filter(Client.organization_id == org_id).all()
+        results = []
+
+        for client in clients:
+            receivables = db.query(Ledger).filter(
+                Ledger.client_id == client.id,
+                Ledger.ledger_type == "receivable",
+            ).all()
+
+            total_invoiced = sum(l.amount for l in receivables)
+            if total_invoiced == 0:
+                continue
+
+            collected_on_time = sum(
+                l.amount for l in receivables
+                if l.status == "paid"
+                and l.payment_date is not None
+                and l.due_date is not None
+                and l.payment_date <= l.due_date
+            )
+
+            score = round(collected_on_time / total_invoiced * 100, 1)
+
+            if score >= 90:
+                classification = "Excellent"
+            elif score >= 75:
+                classification = "Good"
+            elif score >= 50:
+                classification = "Fair"
+            else:
+                classification = "Poor"
+
+            results.append({
+                "client_id": client.id,
+                "client_name": client.name,
+                "score": score,
+                "classification": classification,
+                "total_invoiced": round(total_invoiced, 2),
+                "collected_on_time": round(collected_on_time, 2),
+            })
+
+        results.sort(key=lambda x: x["score"])
+        return {"clients": results, "total_clients": len(results)}
+
+    @staticmethod
+    def set_credit_limit(client_id: int, amount: float, user_id: int, db: Session) -> Dict:
+        """Upsert CreditLimit record and log audit entry."""
+        existing = db.query(CreditLimit).filter(CreditLimit.client_id == client_id).first()
+        client = db.query(Client).filter(Client.id == client_id).first()
+        if not client:
+            raise ValueError(f"Client {client_id} not found")
+
+        if existing:
+            old_amount = existing.limit_amount
+            existing.limit_amount = amount
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            log_audit_event(
+                db=db, action="UPDATE", table_name="credit_limits",
+                record_id=existing.id, tenant_id=client.organization_id,
+                user_id=user_id,
+                old_values={"limit_amount": old_amount},
+                new_values={"limit_amount": amount},
+            )
+            return {"id": existing.id, "client_id": client_id, "limit_amount": amount, "action": "updated"}
+        else:
+            cl = CreditLimit(
+                client_id=client_id,
+                organization_id=client.organization_id,
+                limit_amount=amount,
+                created_by=user_id,
+            )
+            db.add(cl)
+            db.commit()
+            db.refresh(cl)
+            log_audit_event(
+                db=db, action="CREATE", table_name="credit_limits",
+                record_id=cl.id, tenant_id=client.organization_id,
+                user_id=user_id,
+                new_values={"client_id": client_id, "limit_amount": amount},
+            )
+            return {"id": cl.id, "client_id": client_id, "limit_amount": amount, "action": "created"}
+
+    @staticmethod
+    def check_credit_limit(client_id: int, order_amount: float, db: Session) -> Dict:
+        """Return credit utilization and whether the order would exceed the limit."""
+        cl = db.query(CreditLimit).filter(CreditLimit.client_id == client_id).first()
+        if not cl:
+            return {
+                "limit": None, "utilization": 0, "available": None,
+                "would_exceed": False, "warning_80pct": False,
+                "has_limit": False,
+            }
+
+        outstanding = db.query(func.sum(Ledger.amount)).filter(
+            Ledger.client_id == client_id,
+            Ledger.ledger_type == "receivable",
+            Ledger.status == "outstanding",
+        ).scalar() or 0
+
+        utilization = round(outstanding, 2)
+        available = round(cl.limit_amount - utilization, 2)
+        would_exceed = (utilization + order_amount) > cl.limit_amount
+        warning_80pct = utilization >= cl.limit_amount * 0.8
+
+        return {
+            "limit": cl.limit_amount,
+            "utilization": utilization,
+            "available": available,
+            "would_exceed": would_exceed,
+            "warning_80pct": warning_80pct,
+            "has_limit": True,
+        }
+
+    @staticmethod
+    def get_cash_flow_forecast(db: Session, client_id: int, days: int = 30) -> Dict:
+        """Cash flow forecast with daily time-series and cumulative balance."""
+        now = datetime.utcnow()
+        forecast_end = now + timedelta(days=days)
+
+        inflows = db.query(Ledger).filter(
+            Ledger.client_id == client_id,
+            Ledger.ledger_type == "receivable",
+            Ledger.status == "outstanding",
+            Ledger.due_date >= now,
+            Ledger.due_date <= forecast_end,
+        ).all()
+
+        outflows = db.query(Ledger).filter(
+            Ledger.client_id == client_id,
+            Ledger.ledger_type == "payable",
+            Ledger.status == "outstanding",
+            Ledger.due_date >= now,
+            Ledger.due_date <= forecast_end,
+        ).all()
+
+        # Build daily buckets
+        daily: Dict[str, Dict] = {}
+        for i in range(days + 1):
+            day = (now + timedelta(days=i)).date().isoformat()
+            daily[day] = {"projected_inflow": 0.0, "projected_outflow": 0.0}
+
+        for l in inflows:
+            day = l.due_date.date().isoformat()
+            if day in daily:
+                daily[day]["projected_inflow"] += l.amount
+
+        for l in outflows:
+            day = l.due_date.date().isoformat()
+            if day in daily:
+                daily[day]["projected_outflow"] += l.amount
+
+        # Build time-series with cumulative balance
+        time_series = []
+        cumulative = 0.0
+        negative_dates = []
+        for day, vals in sorted(daily.items()):
+            net = vals["projected_inflow"] - vals["projected_outflow"]
+            cumulative += net
+            point = {
+                "date": day,
+                "projected_inflow": round(vals["projected_inflow"], 2),
+                "projected_outflow": round(vals["projected_outflow"], 2),
+                "net_cash_flow": round(net, 2),
+                "cumulative_balance": round(cumulative, 2),
+                "is_negative": cumulative < 0,
+            }
+            time_series.append(point)
+            if cumulative < 0:
+                negative_dates.append(day)
+
+        total_inflow = sum(l.amount for l in inflows)
+        total_outflow = sum(l.amount for l in outflows)
+        net_cash_flow = total_inflow - total_outflow
+
+        return {
+            "forecast_period_days": days,
+            "expected_inflows": round(total_inflow, 2),
+            "expected_outflows": round(total_outflow, 2),
+            "net_cash_flow": round(net_cash_flow, 2),
+            "cash_position": "positive" if net_cash_flow >= 0 else "negative",
+            "negative_balance_dates": negative_dates,
+            "time_series": time_series,
+            "recommendation": FinancialService._cash_flow_recommendation(net_cash_flow, total_outflow),
+        }

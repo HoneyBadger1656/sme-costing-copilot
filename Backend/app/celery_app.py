@@ -65,6 +65,27 @@ celery_app.conf.beat_schedule = {
             'expires': 3600,  # Task expires after 1 hour
         }
     },
+    # Phase 4 tasks
+    'send-payment-reminders': {
+        'task': 'send_payment_reminders',
+        'schedule': crontab(hour=8, minute=0),  # Daily at 8:00 AM IST
+        'options': {'expires': 3600},
+    },
+    'check-expiring-ewaybills': {
+        'task': 'check_expiring_ewaybills',
+        'schedule': crontab(minute=0),  # Every hour
+        'options': {'expires': 3500},
+    },
+    'check-gst-filing-deadlines': {
+        'task': 'check_gst_filing_deadlines',
+        'schedule': crontab(hour=9, minute=30),  # Daily at 9:30 AM IST
+        'options': {'expires': 3600},
+    },
+    'check-credit-utilization': {
+        'task': 'check_credit_utilization',
+        'schedule': crontab(hour=10, minute=0),  # Daily at 10:00 AM IST
+        'options': {'expires': 3600},
+    },
 }
 
 logger.info("celery_initialized", broker=REDIS_URL)

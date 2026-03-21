@@ -107,7 +107,8 @@ class Product(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
-    
+    hsn_sac_id = Column(Integer, ForeignKey("hsn_sac_master.id"), nullable=True)
+
     client = relationship("Client", back_populates="products")
     bom_items = relationship("BOMItem", back_populates="product")
     order_items = relationship("OrderItem", back_populates="product")
@@ -133,6 +134,7 @@ class Order(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=True)
     order_number = Column(String(100), unique=True, index=True)
     customer_name = Column(String(255), nullable=False)
     order_date = Column(DateTime, default=datetime.utcnow)
@@ -560,3 +562,149 @@ class ReportSchedule(Base):
     __table_args__ = (
         {'extend_existing': True}
     )
+
+
+# ─── Phase 4: GST Compliance, E-Invoicing, E-Way Bills & Payments ───────────
+
+class GSTConfiguration(Base):
+    __tablename__ = "gst_configurations"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    gstin = Column(String(15), nullable=False)
+    legal_name = Column(String(255), nullable=False)
+    trade_name = Column(String(255))
+    state_code = Column(String(2), nullable=False)
+    filing_frequency = Column(String(20), default="monthly")  # monthly / quarterly
+    registration_type = Column(String(50), default="regular")  # regular / composition / SEZ
+    gsp_username = Column(String(255))
+    gsp_api_key = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HSNSACMaster(Base):
+    __tablename__ = "hsn_sac_master"
+    id = Column(Integer, primary_key=True)
+    code = Column(String(8), unique=True, nullable=False)
+    description = Column(Text, nullable=False)
+    type = Column(String(3), nullable=False)  # HSN / SAC
+    cgst_rate = Column(Float, default=0)
+    sgst_rate = Column(Float, default=0)
+    igst_rate = Column(Float, default=0)
+    cess_rate = Column(Float, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class GSTReturn(Base):
+    __tablename__ = "gst_returns"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    return_type = Column(String(10), nullable=False)  # GSTR1 / GSTR3B
+    period = Column(String(6), nullable=False)  # MMYYYY
+    filing_status = Column(String(20), default="draft")  # draft/under_review/filed/accepted/rejected
+    return_data = Column(JSON)
+    arn = Column(String(50))
+    filed_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class GSTReconciliation(Base):
+    __tablename__ = "gst_reconciliation"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    period = Column(String(6), nullable=False)
+    source = Column(String(2), nullable=False)  # 2A / 2B
+    raw_data = Column(JSON)
+    reconciliation_result = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EInvoice(Base):
+    __tablename__ = "einvoices"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    irn = Column(String(64))
+    ack_no = Column(String(50))
+    ack_date = Column(DateTime)
+    signed_qr_code = Column(Text)
+    status = Column(String(20), default="pending")  # pending/generated/cancelled/failed/not_applicable
+    error_message = Column(Text)
+    cancelled_at = Column(DateTime)
+    cancellation_reason = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EWayBill(Base):
+    __tablename__ = "ewaybills"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    ewb_number = Column(String(50))
+    generated_at = Column(DateTime)
+    valid_until = Column(DateTime)
+    transporter_gstin = Column(String(15))
+    vehicle_number = Column(String(20))
+    transport_mode = Column(String(10))  # road/rail/air/ship
+    distance_km = Column(Integer)
+    status = Column(String(20), default="active")  # active/cancelled/expired
+    cancellation_reason = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Transporter(Base):
+    __tablename__ = "transporters"
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    gstin = Column(String(15))
+    vehicle_number = Column(String(20))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class InvoicePaymentLink(Base):
+    __tablename__ = "invoice_payment_links"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    razorpay_link_id = Column(String(100))
+    short_url = Column(String(500))
+    amount = Column(Float, nullable=False)
+    status = Column(String(20), default="created")  # created/paid/expired/cancelled
+    expires_at = Column(DateTime)
+    paid_at = Column(DateTime)
+    razorpay_payment_id = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PaymentReminder(Base):
+    __tablename__ = "payment_reminders"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    reminder_type = Column(String(10), nullable=False)  # D-3 / D-1 / D+1
+    scheduled_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime)
+    status = Column(String(20), default="pending")  # pending/sent/cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CreditLimit(Base):
+    __tablename__ = "credit_limits"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), unique=True, nullable=False)
+    organization_id = Column(String(255), ForeignKey("organizations.id"), nullable=False)
+    limit_amount = Column(Float, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -161,3 +161,91 @@ def get_subscription_status(
         "status": org.subscription_status,
         "trial_active": org.subscription_status == "trial"
     }
+
+
+# ── Invoice Payment endpoints (Task 10) ───────────────────────────────────────
+from fastapi.responses import Response
+from datetime import datetime, date
+from app.services.invoice_payment_service import InvoicePaymentService
+
+@router.post("/invoice-link/{order_id}")
+def create_invoice_payment_link(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.utils.rbac import require_role
+    require_role(current_user, ["accountant", "admin", "owner"])
+    return InvoicePaymentService.create_payment_link(order_id, db)
+
+
+@router.get("/invoice-link/{order_id}")
+def get_invoice_payment_link(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.utils.rbac import require_role
+    require_role(current_user, ["viewer", "accountant", "admin", "owner"])
+    return InvoicePaymentService.get_payment_link(order_id, db)
+
+
+@router.post("/upi-qr/{order_id}")
+def generate_upi_qr(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.utils.rbac import require_role
+    require_role(current_user, ["accountant", "admin", "owner"])
+    qr_bytes = InvoicePaymentService.generate_upi_qr(order_id, db)
+    return Response(content=qr_bytes, media_type="image/png")
+
+
+@router.get("/analytics")
+def get_payment_analytics(
+    start_date: date = None,
+    end_date: date = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.utils.rbac import require_role
+    require_role(current_user, ["accountant", "admin", "owner"])
+    start = datetime.combine(start_date, datetime.min.time()) if start_date else None
+    end = datetime.combine(end_date, datetime.max.time()) if end_date else None
+    return InvoicePaymentService.get_payment_analytics(
+        current_user.organization_id, start, end, db
+    )
+
+
+@router.post("/invoice-webhook")
+async def invoice_payment_webhook(request: Request, db: Session = Depends(get_db)):
+    """Razorpay webhook for payment.captured events — HMAC verified."""
+    body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+    if webhook_secret:
+        expected = hmac.new(
+            webhook_secret.encode(), body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    import json as _json
+    event = _json.loads(body)
+
+    if event.get("event") == "payment.captured":
+        payment_entity = event["payload"]["payment"]["entity"]
+        payment_id = payment_entity["id"]
+        order_id_str = payment_entity.get("notes", {}).get("order_id")
+        amount_paise = payment_entity.get("amount", 0)
+        if order_id_str:
+            InvoicePaymentService.reconcile_payment(
+                razorpay_payment_id=payment_id,
+                order_id=int(order_id_str),
+                amount=amount_paise / 100,
+                db=db,
+            )
+
+    return {"status": "ok"}

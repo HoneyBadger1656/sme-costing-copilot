@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 
 from app.core.database import engine, Base
 from app.api import auth, clients, evaluations, data_upload, scenarios, financials, assistant, integrations, costing, products, financial_data, roles, audit, reports, notifications
+from app.api import gst, einvoice, ewaybill, payments, working_capital
 from app.middleware.security import add_security_middleware
 from app.middleware.correlation_middleware import add_correlation_middleware
 from app.exceptions import AppException
@@ -33,6 +34,17 @@ async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
     logger.info("database_initialized", message="Database tables created successfully")
+
+    # Seed HSN/SAC master data
+    try:
+        from app.core.database import SessionLocal
+        from app.services.hsn_seed import seed_hsn_data
+        with SessionLocal() as db:
+            seed_hsn_data(db)
+        logger.info("hsn_seed_complete", message="HSN/SAC master data seeded")
+    except Exception as e:
+        logger.warning("hsn_seed_failed", error=str(e))
+
     yield
     # Shutdown
     logger.info("application_shutdown", message="Application shutting down")
@@ -157,6 +169,11 @@ app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(gst.router, prefix="/api/gst", tags=["GST"])
+app.include_router(einvoice.router, prefix="/api/einvoice", tags=["E-Invoice"])
+app.include_router(ewaybill.router, prefix="/api/ewaybill", tags=["E-Way Bill"])
+app.include_router(working_capital.router, prefix="/api/working-capital", tags=["Working Capital"])
 
 # Serve static files (frontend) - check multiple possible locations
 frontend_paths = [

@@ -61,6 +61,36 @@ const navigationItems = [
 
 const secondaryItems = [
   {
+    name: "GST Compliance",
+    href: "/gst",
+    icon: "🧾",
+    description: "GSTR-1, GSTR-3B, reconciliation"
+  },
+  {
+    name: "E-Invoice",
+    href: "/einvoice",
+    icon: "📋",
+    description: "IRN generation & management"
+  },
+  {
+    name: "E-Way Bill",
+    href: "/ewaybill",
+    icon: "🚚",
+    description: "E-way bill generation"
+  },
+  {
+    name: "Working Capital",
+    href: "/working-capital",
+    icon: "💹",
+    description: "Aging, CCC, credit limits"
+  },
+  {
+    name: "Payments",
+    href: "/payments",
+    icon: "💳",
+    description: "Payment links & analytics"
+  },
+  {
     name: "Financial Data",
     href: "/financial-data",
     icon: "📄",

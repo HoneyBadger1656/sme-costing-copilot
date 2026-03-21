@@ -759,3 +759,147 @@ def send_digest_emails_task(self):
         raise
     finally:
         db.close()
+
+
+# ── Phase 4 periodic tasks ────────────────────────────────────────────────────
+
+@celery_app.task(bind=True, name="send_payment_reminders")
+def send_payment_reminders(self):
+    """Daily: send emails for pending PaymentReminder records due now."""
+    from app.models.models import PaymentReminder, InvoicePaymentLink, Order, Client
+    from app.services.email_service import EmailService
+
+    with SessionLocal() as db:
+        now = datetime.utcnow()
+        due_reminders = db.query(PaymentReminder).filter(
+            PaymentReminder.status == "pending",
+            PaymentReminder.scheduled_at <= now,
+        ).all()
+
+        sent = 0
+        for reminder in due_reminders:
+            try:
+                order = db.query(Order).filter(Order.id == reminder.order_id).first()
+                client = db.query(Client).filter(Client.id == order.client_id).first() if order else None
+                link = db.query(InvoicePaymentLink).filter(
+                    InvoicePaymentLink.order_id == reminder.order_id,
+                    InvoicePaymentLink.status == "active",
+                ).first()
+
+                if order and client:
+                    outstanding = order.total_selling_price - (order.amount_paid or 0)
+                    EmailService.send_payment_reminder(
+                        to_email=client.email,
+                        client_name=client.name,
+                        order_number=order.order_number,
+                        amount=outstanding,
+                        due_date=order.due_date,
+                        payment_url=link.payment_url if link else None,
+                    )
+                    reminder.status = "sent"
+                    reminder.sent_at = now
+                    sent += 1
+            except Exception as e:
+                logger.error("payment_reminder_failed", reminder_id=reminder.id, error=str(e))
+
+        db.commit()
+        logger.info("payment_reminders_sent", count=sent)
+        return {"sent": sent}
+
+
+@celery_app.task(bind=True, name="check_expiring_ewaybills")
+def check_expiring_ewaybills(self):
+    """Hourly: alert on EWayBills expiring within 6 hours."""
+    from app.services.ewaybill_service import EWayBillService
+
+    with SessionLocal() as db:
+        result = EWayBillService.check_expiring_ewbs(db)
+        logger.info("expiring_ewb_check", result=result)
+        return result
+
+
+@celery_app.task(bind=True, name="check_gst_filing_deadlines")
+def check_gst_filing_deadlines(self):
+    """Daily: alert on GST returns due within 7 days still in draft."""
+    from app.models.models import GSTReturn, Client, User
+    from app.services.email_service import EmailService
+    from datetime import timedelta
+
+    with SessionLocal() as db:
+        now = datetime.utcnow()
+        deadline = now + timedelta(days=7)
+        due_returns = db.query(GSTReturn).filter(
+            GSTReturn.status == "draft",
+            GSTReturn.due_date <= deadline,
+            GSTReturn.due_date >= now,
+        ).all()
+
+        alerted = 0
+        for ret in due_returns:
+            try:
+                client = db.query(Client).filter(Client.id == ret.client_id).first()
+                if not client:
+                    continue
+                # Notify accountant/admin/owner users in the org
+                users = db.query(User).filter(
+                    User.organization_id == client.organization_id,
+                    User.role.in_(["accountant", "admin", "owner"]),
+                ).all()
+                for user in users:
+                    EmailService.send_gst_deadline_alert(
+                        to_email=user.email,
+                        return_type=ret.return_type,
+                        period=ret.period,
+                        due_date=ret.due_date,
+                        client_name=client.name,
+                    )
+                alerted += 1
+            except Exception as e:
+                logger.error("gst_deadline_alert_failed", return_id=ret.id, error=str(e))
+
+        logger.info("gst_deadline_alerts_sent", count=alerted)
+        return {"alerted": alerted}
+
+
+@celery_app.task(bind=True, name="check_credit_utilization")
+def check_credit_utilization(self):
+    """Daily: alert when client utilization exceeds 80% of credit limit."""
+    from app.models.models import CreditLimit, Client, User, Ledger
+    from app.services.email_service import EmailService
+    from sqlalchemy import func
+
+    with SessionLocal() as db:
+        limits = db.query(CreditLimit).all()
+        alerted = 0
+
+        for cl in limits:
+            try:
+                outstanding = db.query(func.sum(Ledger.amount)).filter(
+                    Ledger.client_id == cl.client_id,
+                    Ledger.ledger_type == "receivable",
+                    Ledger.status == "outstanding",
+                ).scalar() or 0
+
+                if outstanding >= cl.limit_amount * 0.8:
+                    client = db.query(Client).filter(Client.id == cl.client_id).first()
+                    if not client:
+                        continue
+                    owners = db.query(User).filter(
+                        User.organization_id == cl.organization_id,
+                        User.role == "owner",
+                    ).all()
+                    utilization_pct = round(outstanding / cl.limit_amount * 100, 1)
+                    for user in owners:
+                        EmailService.send_credit_utilization_alert(
+                            to_email=user.email,
+                            client_name=client.name,
+                            utilization_pct=utilization_pct,
+                            outstanding=outstanding,
+                            limit=cl.limit_amount,
+                        )
+                    alerted += 1
+            except Exception as e:
+                logger.error("credit_utilization_alert_failed", limit_id=cl.id, error=str(e))
+
+        logger.info("credit_utilization_alerts_sent", count=alerted)
+        return {"alerted": alerted}
